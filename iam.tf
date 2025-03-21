@@ -21,27 +21,9 @@ locals {
   github_oidc_provider_arn = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
-# Create the IAM role for GitHub Actions
-resource "aws_iam_role" "github_actions" {
+# Reference the existing IAM role for GitHub Actions instead of creating it
+data "aws_iam_role" "github_actions" {
   name = var.github_actions_role_name
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Principal = {
-          Federated = local.github_oidc_provider_arn
-        },
-        Action = "sts:AssumeRoleWithWebIdentity",
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com",
-            "token.actions.githubusercontent.com:sub" = ["repo:${var.github_repo}:ref:refs/heads/main"]
-          }
-        }
-      }
-    ]
-  })
 }
 
 # DynamoDB table resource is commented out due to SCP restrictions
@@ -121,12 +103,12 @@ resource "aws_iam_policy" "iam_policy" {
 
 # Attach policies to the GitHub Actions role
 resource "aws_iam_role_policy_attachment" "s3_policy_attachment" {
-  role       = aws_iam_role.github_actions.name
+  role       = data.aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.s3_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "iam_policy_attachment" {
-  role       = aws_iam_role.github_actions.name
+  role       = data.aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.iam_policy.arn
 }
 
