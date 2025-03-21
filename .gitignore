@@ -1,0 +1,17 @@
+# Environment variables
+.env
+
+# Terraform files
+.terraform/*
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+
+# OS generated files
+.DS_Store
+
+# Log files
+*.log
+
+# Exceptions
+!*.example
