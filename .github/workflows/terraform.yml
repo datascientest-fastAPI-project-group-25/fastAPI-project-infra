@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -12,6 +13,8 @@ permissions:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -19,20 +22,43 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID  }}:role/FastAPIProjectInfraRole
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
           aws-region: eu-west-2
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        continue-on-error: true
 
       - name: Terraform Init
         run: terraform init
 
       - name: Run Checkov Security Scan
         run: bash checkov.sh
+        continue-on-error: true
+
+      - name: Terraform Validate
+        run: terraform validate
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
+        
+      - name: Terraform Plan Output
+        run: terraform show -no-color tfplan > tfplan.txt
+        
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: tfplan.txt
+          retention-days: 7
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
