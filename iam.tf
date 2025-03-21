@@ -10,6 +10,12 @@ variable "github_repo" {
   default     = "datascientest-fastAPI-project-group-25/fastAPI-project-infra"
 }
 
+variable "github_actions_role_name" {
+  type        = string
+  description = "Name of the IAM role for GitHub Actions"
+  default     = "FastApiProjectRole"  # Match the role name used in the GitHub Actions workflow
+}
+
 # The OIDC provider ARN is hardcoded to avoid the need for iam:ListOpenIDConnectProviders permission
 locals {
   github_oidc_provider_arn = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
@@ -17,7 +23,7 @@ locals {
 
 # Create the IAM role for GitHub Actions
 resource "aws_iam_role" "github_actions" {
-  name = "GitHubActionsRole"
+  name = var.github_actions_role_name
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
