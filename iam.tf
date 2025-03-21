@@ -93,10 +93,35 @@ resource "aws_iam_policy" "s3_policy" {
 #   })
 # }
 
+# Create IAM policy for necessary permissions
+resource "aws_iam_policy" "iam_policy" {
+  name        = "IAMPermissionsForTerraform"
+  description = "Policy for IAM permissions needed by Terraform"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "iam:ListOpenIDConnectProviders",
+          "iam:GetOpenIDConnectProvider",
+          "iam:TagOpenIDConnectProvider"
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 # Attach policies to the GitHub Actions role
 resource "aws_iam_role_policy_attachment" "s3_policy_attachment" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.s3_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "iam_policy_attachment" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.iam_policy.arn
 }
 
 # DynamoDB policy attachment is commented out due to SCP restrictions
