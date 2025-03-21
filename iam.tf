@@ -38,27 +38,9 @@ locals {
 #   }
 # }
 
-# Create policy for S3 access (for Terraform state)
-resource "aws_iam_policy" "s3_policy" {
-  name        = "S3TerraformStateAccess"
-  description = "Policy for Terraform state access in S3"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "arn:aws:s3:::my-terraform-state-bucket-eu-west-2",
-          "arn:aws:s3:::my-terraform-state-bucket-eu-west-2/*"
-        ]
-      },
-    ]
-  })
+# Reference existing S3 policy instead of creating it
+data "aws_iam_policy" "s3_policy" {
+  name = "S3TerraformStateAccess"
 }
 
 # DynamoDB policy is commented out due to SCP restrictions
@@ -81,38 +63,20 @@ resource "aws_iam_policy" "s3_policy" {
 #   })
 # }
 
-# Create IAM policy for necessary permissions
-resource "aws_iam_policy" "iam_policy" {
-  name        = "IAMPermissionsForTerraform"
-  description = "Policy for IAM permissions needed by Terraform"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = [
-          "iam:ListOpenIDConnectProviders",
-          "iam:GetOpenIDConnectProvider",
-          "iam:TagOpenIDConnectProvider",
-          "iam:GetRole",
-          "iam:ListRolePolicies",
-          "iam:ListAttachedRolePolicies"
-        ]
-        Resource = "*"
-      },
-    ]
-  })
+# Reference existing IAM policy instead of creating it
+data "aws_iam_policy" "iam_policy" {
+  name = "IAMPermissionsForTerraform"
 }
 
 # Attach policies to the GitHub Actions role
 resource "aws_iam_role_policy_attachment" "s3_policy_attachment" {
   role       = local.github_actions_role_name
-  policy_arn = aws_iam_policy.s3_policy.arn
+  policy_arn = data.aws_iam_policy.s3_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "iam_policy_attachment" {
   role       = local.github_actions_role_name
-  policy_arn = aws_iam_policy.iam_policy.arn
+  policy_arn = data.aws_iam_policy.iam_policy.arn
 }
 
 # DynamoDB policy attachment is commented out due to SCP restrictions
