@@ -38,9 +38,20 @@ locals {
 #   }
 # }
 
-# Reference existing S3 policy instead of creating it
-data "aws_iam_policy" "s3_policy" {
-  name = "S3TerraformStateAccess"
+# Define S3 policy document for reference
+data "aws_iam_policy_document" "s3_policy_doc" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      "arn:aws:s3:::my-terraform-state-bucket-eu-west-2",
+      "arn:aws:s3:::my-terraform-state-bucket-eu-west-2/*"
+    ]
+  }
 }
 
 # DynamoDB policy is commented out due to SCP restrictions
@@ -63,20 +74,33 @@ data "aws_iam_policy" "s3_policy" {
 #   })
 # }
 
-# Reference existing IAM policy instead of creating it
-data "aws_iam_policy" "iam_policy" {
-  name = "IAMPermissionsForTerraform"
+# Define IAM policy document for reference
+data "aws_iam_policy_document" "iam_policy_doc" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:ListOpenIDConnectProviders",
+      "iam:GetOpenIDConnectProvider",
+      "iam:TagOpenIDConnectProvider",
+      "iam:GetRole",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies"
+    ]
+    resources = ["*"]
+  }
 }
 
-# Attach policies to the GitHub Actions role
-resource "aws_iam_role_policy_attachment" "s3_policy_attachment" {
-  role       = local.github_actions_role_name
-  policy_arn = data.aws_iam_policy.s3_policy.arn
+# Add inline policies to the GitHub Actions role
+resource "aws_iam_role_policy" "s3_inline_policy" {
+  name   = "S3TerraformStateAccess"
+  role   = local.github_actions_role_name
+  policy = data.aws_iam_policy_document.s3_policy_doc.json
 }
 
-resource "aws_iam_role_policy_attachment" "iam_policy_attachment" {
-  role       = local.github_actions_role_name
-  policy_arn = data.aws_iam_policy.iam_policy.arn
+resource "aws_iam_role_policy" "iam_inline_policy" {
+  name   = "IAMPermissionsForTerraform"
+  role   = local.github_actions_role_name
+  policy = data.aws_iam_policy_document.iam_policy_doc.json
 }
 
 # DynamoDB policy attachment is commented out due to SCP restrictions
