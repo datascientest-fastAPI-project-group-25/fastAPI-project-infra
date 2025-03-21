@@ -9,6 +9,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 jobs:
   terraform:
@@ -54,7 +55,7 @@ jobs:
         run: terraform show -no-color tfplan > tfplan.txt
         
       - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tfplan
           path: tfplan.txt
