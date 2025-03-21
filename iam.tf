@@ -13,7 +13,7 @@ variable "github_repo" {
 variable "github_actions_role_name" {
   type        = string
   description = "Name of the IAM role for GitHub Actions"
-  default     = "FastApiProjectRole"  # Match the role name used in the GitHub Actions workflow
+  default     = "FastAPIProjectInfraRole"  # Match the role name used in the GitHub Actions workflow
 }
 
 # The OIDC provider ARN is hardcoded to avoid the need for iam:ListOpenIDConnectProviders permission
