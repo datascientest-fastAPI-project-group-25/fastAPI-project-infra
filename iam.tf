@@ -10,9 +10,9 @@ variable "github_repo" {
   default     = "datascientest-fastAPI-project-group-25/fastAPI-project-infra"
 }
 
-# Use existing OIDC Provider for GitHub Actions
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
+# The OIDC provider ARN is hardcoded to avoid the need for iam:ListOpenIDConnectProviders permission
+locals {
+  github_oidc_provider_arn = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
 # Create the IAM role for GitHub Actions
@@ -24,7 +24,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow",
         Principal = {
-          Federated = data.aws_iam_openid_connect_provider.github.arn
+          Federated = local.github_oidc_provider_arn
         },
         Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
