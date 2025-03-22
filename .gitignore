@@ -17,3 +17,4 @@ terraform.tfstate.backup
 !*.example
 *.env
 *.env.example
+*.env.test

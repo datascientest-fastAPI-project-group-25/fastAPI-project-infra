@@ -26,17 +26,80 @@ locals {
   github_actions_role_name = var.github_actions_role_name
 }
 
-# DynamoDB table resource is commented out due to SCP restrictions
-# resource "aws_dynamodb_table" "terraform_lock" {
-#   name         = "terraform-lock"
-#   billing_mode = "PAY_PER_REQUEST"
-#   hash_key     = "LockID"
-# 
-#   attribute {
-#     name = "LockID"
-#     type = "S"
-#   }
-# }
+ #DynamoDB table resource is commented out due to SCP restrictions
+ #resource "aws_dynamodb_table" "terraform_lock" {
+  # name         = "terraform-lock"
+   #billing_mode = "PAY_PER_REQUEST"
+   #hash_key     = "LockID"
+ 
+   #attribute {
+    # name = "LockID"
+     #type = "S"
+   #}
+ #}
+
+resource "aws_iam_role_policy" "github_actions_policy" {
+  name = "GitHubActionsPolicy"
+  role = aws_iam_role.github_actions_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:UpdateRole",
+          "iam:UpdateRoleDescription"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:*"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.bucket_name}",
+          "arn:aws:s3:::${var.bucket_name}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "github_actions_role" {
+  name = "FastAPIProjectInfraRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "github.com"
+        }
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+          }
+        }
+      }
+    ]
+  })
+}
 
 # Define S3 policy document for reference
 data "aws_iam_policy_document" "s3_policy_doc" {
@@ -65,9 +128,9 @@ data "aws_iam_policy_document" "s3_policy_doc" {
 #         Effect   = "Allow"
 #         Action   = [
 #           "dynamodb:GetItem",
-#           "dynamodb:PutItem",
-#           "dynamodb:DeleteItem"
-#         ]
+#           "dynamodb:PutItem",  
+#           "dynamodb:DeleteItem"  
+#         ]  
 #         Resource = "*" # aws_dynamodb_table.terraform_lock.arn
 #       },
 #     ]
