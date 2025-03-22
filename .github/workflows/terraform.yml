@@ -13,9 +13,11 @@ permissions:
 
 jobs:
   terraform:
+    name: Terraform Deployment
     runs-on: ubuntu-latest
     env:
       TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+      TF_VAR_github_repo: ${{ github.repository }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
