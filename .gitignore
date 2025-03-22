@@ -15,3 +15,5 @@ terraform.tfstate.backup
 
 # Exceptions
 !*.example
+*.env
+*.env.example
