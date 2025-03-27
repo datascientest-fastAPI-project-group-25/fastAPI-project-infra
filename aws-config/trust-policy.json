@@ -14,10 +14,9 @@
                 "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/heads/main",
                 "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/heads/develop"
               ]
-    
+
           }
         }
       }
     ]
   }
-  

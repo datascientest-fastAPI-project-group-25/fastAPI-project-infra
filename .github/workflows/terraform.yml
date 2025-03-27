@@ -4,12 +4,18 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.tf'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
-  actions: read
+  pull-requests: write
 
 jobs:
   terraform:
@@ -18,6 +24,8 @@ jobs:
     env:
       TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
+      TF_INPUT: false
+      TF_IN_AUTOMATION: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -27,7 +35,29 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/FastAPIProjectInfraRole
           aws-region: eu-west-2
-          audience: sts.amazonaws.com
+          role-session-name: GitHubActions
+          role-duration-seconds: 3600
+          mask-aws-account-id: true
+
+      - name: Verify S3 Bucket Existence
+        id: check_bucket
+        run: |
+          if aws s3api head-bucket --bucket "dst-project-group-25-terraform-state" 2>/dev/null; then
+            echo "S3 bucket exists"
+          else
+            echo "::error::S3 bucket 'dst-project-group-25-terraform-state' does not exist"
+            exit 1
+          fi
+
+      - name: Verify DynamoDB Table Existence
+        id: check_dynamodb
+        run: |
+          if aws dynamodb describe-table --table-name "terraform-state-lock" > /dev/null 2>&1; then
+            echo "DynamoDB table exists"
+          else
+            echo "::error::DynamoDB table 'terraform-state-lock' does not exist"
+            exit 1
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -38,25 +68,32 @@ jobs:
         run: pip install checkov
 
       - name: Terraform Format Check
+        id: fmt
         run: terraform fmt -check
         continue-on-error: true
 
       - name: Terraform Init
+        id: init
         run: terraform init
 
       - name: Run Checkov Security Scan
-        run: bash checkov.sh
+        id: checkov
+        run: |
+          checkov -d . --framework terraform --compact --quiet
         continue-on-error: true
 
       - name: Terraform Validate
+        id: validate
         run: terraform validate
 
       - name: Terraform Plan
+        id: plan
         run: terraform plan -out=tfplan
-        
+
       - name: Terraform Plan Output
+        id: show
         run: terraform show -no-color tfplan > tfplan.txt
-        
+
       - name: Upload Terraform Plan
         uses: actions/upload-artifact@v4
         with:
@@ -65,4 +102,6 @@ jobs:
           retention-days: 7
 
       - name: Terraform Apply
+        id: apply
+        if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
