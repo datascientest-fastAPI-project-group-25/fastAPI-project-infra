@@ -1,20 +1,76 @@
-# Environment variables
-.env
+# Terraform state files
+*.tfstate
+*.tfstate.backup
+*.tfstate.*
 
-# Terraform files
-.terraform/*
-terraform.tfstate
-terraform.tfstate.backup
+# Terraform crash log
+crash.log
+
+# Terraform variables and secrets
 *.tfvars
+*.tfvars.json
+!example.tfvars # Allow example variable files to be tracked
 
-# OS generated files
-.DS_Store
+# Terraform plan files
+*.tfplan
 
-# Log files
+# Ignore override files (local changes that shouldn't be tracked)
+override.tf
+override.tf.json
+*.override.tf
+*.override.tf.json
+
+# Ignore module and provider caches
+.terraform/*
+.terraform.lock.hcl
+
+# Ignore Terraform plugin directory
+.terraform.d/
+
+# Ignore logs and debug output
 *.log
+debug.tf
 
+# Ignore workspace-related files
+.terraform.workspaces
+
+# Ignore temporary files (MacOS, Windows, Linux)
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+
+# Ignore IDE/editor-specific files
+.vscode/
+.idea/
+*.iml
+*.sublime-workspace
+*.swp
+
+# Ignore Python virtual environments (if using scripts)
+venv/
+__pycache__/
+
+# Ignore Terraform generated JSON output
+*.json
+!terraform.tf.json # Allow explicitly defined JSON files
 # Exceptions
 !*.example
 *.env
 *.env.example
 *.env.test
+# Terraform provider files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+terraform-docs.tar.gz
+.terraform/
+.terraform/
+terraform/.terraform/
+terraform/modules/dynamoDB/.terraform/
+s3/.terraform/
+terraform/boostrap/.terraform/
+**/.terraform/
+**/terraform-provider-*
+.git/objects/
