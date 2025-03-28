@@ -1,0 +1,27 @@
+- [x] get code from GPT into Codebase
+- [x] adapt to reality and our gh / aws
+  - [x] Modified Terraform configuration to work with SCP restrictions
+  - [x] Updated IAM configuration to use existing OIDC provider
+  - [x] Created IAM policy with necessary permissions
+  - [x] Fixed GitHub Actions workflow for local testing
+- [ ] run and make work
+  - [x] Successfully initialized Terraform
+  - [x] Verified configuration with terraform plan
+  - [ ] Test GitHub Actions workflow locally using act
+  - [ ] Push changes to GitHub
+  - [ ] Test GitHub Actions workflow in GitHub
+- [ ] add tests etc. PRECOMMIT
+  - [ ] Add pre-commit hooks for Terraform validation
+  - [ ] Add Checkov security scanning
+- [ ] add tests etc. GH ACTION
+  - [ ] Add Terraform validation in GitHub Actions
+  - [ ] Add security scanning in GitHub Actions
+- [ ] add DEV branch and MAIN security
+  - [ ] Create DEV branch
+  - [ ] Configure branch protection for MAIN
+- [ ] add feat / fix branch rules
+  - [ ] Configure branch naming conventions
+  - [ ] Set up auto-merge for fix branches
+- [ ] split tests on merge to DEV
+  - [ ] Configure separate test workflows for DEV branch
+- [ ] artifact push/pull on merge to MAIN

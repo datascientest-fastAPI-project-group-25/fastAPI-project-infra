@@ -1,0 +1,10 @@
+directory:
+  - terraform/
+framework:
+  - terraform
+skip-check:
+  - CKV_AWS_115
+  - CKV_AWS_116
+  - CKV_AWS_117
+compact: true
+quiet: true
