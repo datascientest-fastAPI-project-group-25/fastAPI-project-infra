@@ -1,7 +1,6 @@
-# Load environment variables from .env.test
+# Load environment variables
 load_env:
 	@echo "Loading environment variables..."
-	@set -a && source "$(shell pwd)/.env.test" && set +a || echo "Warning: .env.test file not found or not accessible"
 
 # Run GitHub Actions locally with act (note: OIDC won't work locally)
 run_act: load_env

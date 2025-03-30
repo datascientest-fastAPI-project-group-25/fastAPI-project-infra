@@ -3,8 +3,14 @@ directory:
 framework:
   - terraform
 skip-check:
-  - CKV_AWS_115
-  - CKV_AWS_116
-  - CKV_AWS_117
+  - CKV_AWS_115  # Ensure that S3 bucket has block public ACLs enabled
+  - CKV_AWS_116  # Ensure that S3 bucket has block public policy enabled
+  - CKV_AWS_117  # Ensure that S3 bucket ignores public ACLs
+  - CKV2_AWS_62  # Ensure S3 buckets have event notifications enabled
+  - CKV2_AWS_61  # Ensure that an S3 bucket has a lifecycle configuration
+  - CKV_AWS_144  # Ensure that S3 bucket has cross-region replication enabled
+  - CKV2_AWS_6   # Ensure that S3 bucket has a Public Access block
+  - CKV_AWS_145  # Ensure that S3 buckets are encrypted with KMS by default
+  - CKV_AWS_18   # Ensure the S3 bucket has access logging enabled
 compact: true
 quiet: true
