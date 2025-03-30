@@ -10,28 +10,22 @@ terraform {
       version = "~> 3.0"
     }
   }
-  # Uncomment this block when migrating to AWS
-  # backend "s3" {
-  #   # Configuration will be provided via backend.hcl
-  # }
+  # Backend configuration will be provided via -backend-config
 }
 
 # Provider configuration for LocalStack
 provider "aws" {
-  region                      = "us-east-1"
-  skip_credentials_validation = true
-  skip_metadata_api_check     = true
-  skip_requesting_account_id  = true
+  region                      = var.aws_region
+  skip_credentials_validation = var.use_localstack
+  skip_metadata_api_check     = var.use_localstack
+  skip_requesting_account_id  = var.use_localstack
 
-  # LocalStack endpoints
-  endpoints {
-    dynamodb = "http://localhost:4566"
-    s3       = "http://localhost:4566"
+  # LocalStack endpoints (only applied when use_localstack = true)
+  dynamic "endpoints" {
+    for_each = var.use_localstack ? [1] : []
+    content {
+      dynamodb = "http://localhost:4566"
+      s3       = "http://localhost:4566"
+    }
   }
 }
-
-# Uncomment and modify this provider block when using actual AWS
-# provider "aws" {
-#   region = "us-east-1"
-#   # Add any additional configuration as needed
-# }

@@ -1,5 +1,5 @@
-bucket         = "terraform-state-bucket"
+bucket         = "fastapi-project-terraform-state-${var.aws_account_id}"
 key            = "bootstrap/terraform.tfstate"
-region         = "us-east-1"
-dynamodb_table = "s3-lock-table"
+region         = var.aws_region
+dynamodb_table = var.dynamodb_table_name
 encrypt        = true
