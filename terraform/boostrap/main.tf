@@ -130,7 +130,13 @@ resource "aws_iam_role_policy" "github_actions_bootstrap_policy" {
           "dynamodb:CreateTable",
           "dynamodb:DescribeTable",
           "dynamodb:UpdateTable",
-          "dynamodb:DeleteTable"
+          "dynamodb:DeleteTable",
+          "iam:PassRole",
+          "iam:CreateRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:DeleteRole",
+          "sts:AssumeRole"
         ],
         Resource = [
           "arn:aws:s3:::fastapi-project-terraform-state-${var.aws_account_id}",
