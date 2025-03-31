@@ -12,6 +12,8 @@ locals {
   local_logs_dir  = "local-infra/s3-buckets/logs"
   s3_bucket_name = var.use_localstack ? "localstack-s3-bucket" : "fastapi-project-terraform-state-${var.aws_account_id}"
   logs_bucket_name = var.use_localstack ? "localstack-logs-bucket" : "fastapi-project-terraform-logs-${var.aws_account_id}"
+  github_actions_oidc_arn = "arn:aws:iam::${var.aws_account_id}:oidc-provider/token.actions.githubusercontent.com"
+  s3_logs_bucket_name = var.use_localstack ? "localstack-logs-bucket" : "fastapi-project-terraform-logs-${var.aws_account_id}"
 }
 
 # Create local directories to simulate S3 buckets if using LocalStack
@@ -229,18 +231,20 @@ resource "aws_lambda_permission" "allow_s3_event" {
   source_arn    = aws_s3_bucket.terraform_state[0].arn
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "logging_bucket" {
+  count  = var.use_localstack ? 0 : 1
+  bucket = aws_s3_bucket.logging_bucket[0].id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
 # Logging bucket
 resource "aws_s3_bucket" "logging_bucket" {
   count = var.use_localstack ? 0 : 1
   bucket = local.logs_bucket_name
-
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
-    }
-  }
 
   lifecycle {
     prevent_destroy = true
