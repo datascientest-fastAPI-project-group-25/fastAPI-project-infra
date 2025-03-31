@@ -83,10 +83,21 @@ data "aws_iam_policy_document" "github_actions_policy" {
       "lambda:DeleteFunction",
       "lambda:UpdateFunctionCode",
       "lambda:UpdateFunctionConfiguration",
-      "iam:PassRole"
+      "iam:PassRole",
+      "s3:CreateBucket",
+      "s3:PutBucketVersioning",
+      "s3:PutBucketEncryption",
+      "s3:PutBucketPolicy",
+      "s3:PutBucketLifecycleConfiguration",
+      "dynamodb:CreateTable",
+      "dynamodb:DescribeTable",
+      "dynamodb:UpdateTable",
+      "dynamodb:DeleteTable"
     ]
     resources = [
-      "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:s3-event-processor"
+      "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:s3-event-processor",
+      "arn:aws:s3:::*",
+      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/*"
     ]
   }
 
@@ -100,18 +111,6 @@ data "aws_iam_policy_document" "github_actions_policy" {
     resources = [
       "arn:aws:s3:::fastapi-project-terraform-state-${var.aws_account_id}",
       "arn:aws:s3:::fastapi-project-terraform-state-${var.aws_account_id}/*"
-    ]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:DeleteItem"
-    ]
-    resources = [
-      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/${var.dynamodb_table_name}"
     ]
   }
 }

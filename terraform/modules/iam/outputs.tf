@@ -3,10 +3,10 @@ output "github_actions_role_name" {
   value       = aws_iam_role.github_actions.name
 }
 
-output "github_actions_role_arn" {
-  description = "GitHub Actions IAM Role ARN"
-  value       = aws_iam_role.github_actions.arn
-}
+#output "github_actions_role_arn" {
+#  description = "GitHub Actions IAM Role ARN"
+#  value       = aws_iam_role.github_actions.arn
+#}
 
 output "lambda_role_arn" {
   description = "Lambda execution role ARN"

@@ -2,17 +2,6 @@ terraform {
   backend "local" {}
 }
 
-# Uncomment the following block to use S3 backend
-# terraform {
-#   backend "s3" {
-#     bucket         = "dst-project-group-25-terraform-state"
-#     key            = "terraform.tfstate"
-#     region         = "eu-west-2"
-#     dynamodb_table = "terraform-state-lock"
-#     encrypt        = true
-#   }
-# }
-
 provider "aws" {
   region = var.aws_region
   alias  = "main"
@@ -21,8 +10,8 @@ provider "aws" {
 locals {
   local_state_dir = "local-infra/s3-buckets/state"
   local_logs_dir  = "local-infra/s3-buckets/logs"
-  s3_bucket_name = var.use_localstack ? "localstack-s3-bucket" : "dst-project-group-25-s3-bucket"
-  logs_bucket_name = var.use_localstack ? "localstack-logs-bucket" : "dst-project-group-25-logs-bucket"
+  s3_bucket_name = var.use_localstack ? "localstack-s3-bucket" : "fastapi-project-terraform-state-${var.aws_account_id}"
+  logs_bucket_name = var.use_localstack ? "localstack-logs-bucket" : "fastapi-project-terraform-logs-${var.aws_account_id}"
 }
 
 # Create local directories to simulate S3 buckets if using LocalStack
@@ -82,10 +71,79 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
-# Create S3 bucket for Terraform state next
+# GitHub Actions OIDC Provider
+data "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+# GitHub Actions Role for bootstraping
+resource "aws_iam_role" "github_actions_bootstrap_role" {
+  name = "GitHubActionsBootstrapRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = data.aws_iam_openid_connect_provider.github_actions.arn
+        },
+        Action = "sts:AssumeRoleWithWebIdentity",
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:sub": "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "GitHubActionsBootstrapRole"
+    Environment = var.environment
+    Project     = var.project_name
+    Terraform   = "true"
+  }
+}
+
+# GitHub Actions Policy
+resource "aws_iam_role_policy" "github_actions_bootstrap_policy" {
+  name   = "GitHubActionsBootstrapPolicy"
+  role   = aws_iam_role.github_actions_bootstrap_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:CreateBucket",
+          "s3:PutBucketVersioning",
+          "s3:PutBucketEncryption",
+          "s3:PutBucketPolicy",
+          "s3:PutBucketLifecycleConfiguration",
+          "dynamodb:CreateTable",
+          "dynamodb:DescribeTable",
+          "dynamodb:UpdateTable",
+          "dynamodb:DeleteTable"
+        ],
+        Resource = [
+          "arn:aws:s3:::fastapi-project-terraform-state-${var.aws_account_id}",
+          "arn:aws:s3:::fastapi-project-terraform-state-${var.aws_account_id}/*",
+          "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/${var.dynamodb_table_name}"
+        ]
+      }
+    ]
+  })
+}
+
+# Create S3 bucket for Terraform state
 resource "aws_s3_bucket" "terraform_state" {
   count  = var.use_localstack ? 0 : 1
-  bucket = "fastapi-project-terraform-state-${var.aws_account_id}"
+  bucket = local.s3_bucket_name
 
   lifecycle {
     prevent_destroy = true
@@ -113,28 +171,36 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
   }
 }
 
-# GitHub Actions OIDC Provider
-data "aws_iam_openid_connect_provider" "github_actions" {
-  url = "https://token.actions.githubusercontent.com"
-}
+# Lambda role
+resource "aws_iam_role" "lambda_role" {
+  name = "lambda-execution-role"
 
-# IAM module (needs to be after S3 and DynamoDB)
-module "iam" {
-  source = "../modules/iam"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
 
-  github_actions_role_name = "fastapi-project-bootstrap-oidc-role"
-  aws_account_id           = var.aws_account_id
-  github_repo              = "fastAPI-project-infra"
-  github_org               = "datascientest-fastAPI-project-group-25"
-  aws_region               = var.aws_region
-  github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github_actions.arn
+  tags = {
+    Name        = "lambda-execution-role"
+    Environment = var.environment
+    Project     = var.project_name
+    Terraform   = "true"
+  }
 }
 
 # Lambda function (needs IAM role)
 resource "aws_lambda_function" "s3_event_lambda" {
   count = var.use_localstack ? 0 : 1
   function_name = "s3-event-processor"
-  role          = module.iam.lambda_role_arn
+  role          = aws_iam_role.lambda_role.arn
   handler       = "notification_handler.lambda_handler"
   runtime       = "nodejs18.x"
   filename      = "notification_handler.zip"
@@ -143,13 +209,13 @@ resource "aws_lambda_function" "s3_event_lambda" {
 
 # S3 bucket notifications (needs Lambda)
 resource "aws_s3_bucket_notification" "terraform_state_notifications" {
-  depends_on = [aws_lambda_function.s3_event_lambda]
-  count      = var.use_localstack ? 0 : 1
-  bucket     = aws_s3_bucket.terraform_state[0].id
+  count = var.use_localstack ? 0 : 1
+  bucket = aws_s3_bucket.terraform_state[0].id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.s3_event_lambda[0].arn
     events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "terraform.tfstate"
   }
 }
 
@@ -165,16 +231,8 @@ resource "aws_lambda_permission" "allow_s3_event" {
 
 # Logging bucket
 resource "aws_s3_bucket" "logging_bucket" {
-  count  = var.use_localstack ? 0 : 1
-  bucket = "fastapi-project-terraform-logs-${var.aws_account_id}"
-
-  lifecycle {
-    prevent_destroy = true
-  }
-
-  versioning {
-    enabled = true
-  }
+  count = var.use_localstack ? 0 : 1
+  bucket = local.logs_bucket_name
 
   server_side_encryption_configuration {
     rule {
@@ -184,19 +242,32 @@ resource "aws_s3_bucket" "logging_bucket" {
     }
   }
 
-  public_access_block {
-    block_public_acls       = true
-    block_public_policy     = true
-    ignore_public_acls      = true
-    restrict_public_buckets = true
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
-# S3 bucket logging
-resource "aws_s3_bucket_logging" "terraform_state_logging" {
+# Enable versioning for the logging bucket
+resource "aws_s3_bucket_versioning" "logging_bucket" {
   count  = var.use_localstack ? 0 : 1
-  bucket = aws_s3_bucket.terraform_state[0].id
+  bucket = aws_s3_bucket.logging_bucket[0].id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
 
+# Enable logging for the state bucket
+resource "aws_s3_bucket_logging" "terraform_state" {
+  count = var.use_localstack ? 0 : 1
+  bucket = aws_s3_bucket.terraform_state[0].id
+  target_bucket = aws_s3_bucket.logging_bucket[0].id
+  target_prefix = "state-bucket-logs/"
+}
+
+# S3 bucket logging
+resource "aws_s3_bucket_logging" "logging_bucket_logging" {
+  count  = var.use_localstack ? 0 : 1
+  bucket = aws_s3_bucket.logging_bucket[0].id
   target_bucket = aws_s3_bucket.logging_bucket[0].id
   target_prefix = "logs/"
 }
