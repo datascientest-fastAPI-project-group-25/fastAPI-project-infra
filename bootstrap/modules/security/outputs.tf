@@ -1,6 +1,6 @@
 output "github_actions_role_arn" {
   description = "ARN of the GitHub Actions IAM role"
-  value       = aws_iam_role.github_actions_bootstrap_role.arn
+  value       = var.use_localstack ? null : try(aws_iam_role.github_actions_bootstrap_role[0].arn, null)
 }
 
 output "lambda_function_arn" {

@@ -8,12 +8,19 @@ terraform {
 }
 
 # GitHub Actions OIDC Provider
+# Only fetch OIDC provider in AWS environment
 data "aws_iam_openid_connect_provider" "github_actions" {
+  count = var.use_localstack ? 0 : 1
   url = "https://token.actions.githubusercontent.com"
+}
+
+locals {
+  github_actions_oidc_arn = var.use_localstack ? "arn:aws:iam::000000000000:oidc-provider/token.actions.githubusercontent.com" : data.aws_iam_openid_connect_provider.github_actions[0].arn
 }
 
 # GitHub Actions Role for bootstrapping
 resource "aws_iam_role" "github_actions_bootstrap_role" {
+  count = var.use_localstack ? 0 : 1
   name = "GitHubActionsBootstrapRole"
 
   assume_role_policy = jsonencode({
@@ -22,7 +29,7 @@ resource "aws_iam_role" "github_actions_bootstrap_role" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = data.aws_iam_openid_connect_provider.github_actions.arn
+          Federated = local.github_actions_oidc_arn
         },
         Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
@@ -44,8 +51,9 @@ resource "aws_iam_role" "github_actions_bootstrap_role" {
 
 # GitHub Actions Policy
 resource "aws_iam_role_policy" "github_actions_bootstrap_policy" {
+  count = var.use_localstack ? 0 : 1
   name = "GitHubActionsBootstrapPolicy"
-  role = aws_iam_role.github_actions_bootstrap_role.id
+  role = aws_iam_role.github_actions_bootstrap_role[0].id
 
   policy = jsonencode({
     Version = "2012-10-17",

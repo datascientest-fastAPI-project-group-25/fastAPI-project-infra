@@ -18,6 +18,9 @@ validate-aws-env:
 start-localstack:
 	@echo "Starting LocalStack..."
 	docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
+	@echo "Waiting for LocalStack to be ready..."
+	@sleep 10
+	@cd environments/local && ./init-localstack.sh
 
 stop-localstack:
 	@echo "Stopping LocalStack..."
@@ -28,7 +31,7 @@ local-init:
 	@echo "Initializing Terraform for local environment..."
 	cd environments/local && terraform init
 
-local-plan:
+local-plan: start-localstack
 	@echo "Planning local environment changes..."
 	cd environments/local && terraform plan
 
