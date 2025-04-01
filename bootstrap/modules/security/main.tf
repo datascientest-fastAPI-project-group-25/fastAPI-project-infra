@@ -131,6 +131,7 @@ resource "aws_lambda_permission" "allow_s3_event" {
   function_name = aws_lambda_function.s3_event_lambda[0].function_name
   principal     = "s3.amazonaws.com"
   source_arn    = var.state_bucket_arn
+  source_account = var.aws_account_id
 }
 
 # S3 bucket notification configuration

@@ -3,8 +3,8 @@
 # Source environment variables
 source ../../scripts/load-env.sh
 
-BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-REGION="us-east-1"
+BUCKET_NAME="${state_bucket_name}"
+REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 
 echo "Checking for existing bucket..."
 if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
@@ -82,4 +82,14 @@ echo "${BUCKET_POLICY}" | aws s3api put-bucket-policy \
     --bucket "${BUCKET_NAME}" \
     --policy file:///dev/stdin
 
-echo "State bucket setup complete in ${REGION}"
+# Create DynamoDB table for state locking
+DYNAMODB_TABLE="terraform-state-lock"
+echo "Creating DynamoDB table for state locking..."
+aws dynamodb create-table \
+    --table-name "${DYNAMODB_TABLE}" \
+    --attribute-definitions AttributeName=LockID,AttributeType=S \
+    --key-schema AttributeName=LockID,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST \
+    --region "${REGION}" || echo "DynamoDB table may already exist or you don't have permissions to create it."
+
+echo "State bucket and DynamoDB setup complete in ${REGION}"

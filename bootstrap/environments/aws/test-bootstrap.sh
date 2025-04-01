@@ -23,9 +23,9 @@ echo "Using AWS Account: $AWS_ACCOUNT_ID"
 
 # Initialize Terraform with backend configuration
 echo "Initializing Terraform..."
-terraform init \
+terraform init -reconfigure \
     -backend-config=backend.hcl \
-    -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+    -backend-config="bucket=${state_bucket_name}"
 
 # Plan changes
 echo "Planning changes..."
@@ -33,7 +33,8 @@ terraform plan \
     -var="aws_account_id=${AWS_ACCOUNT_ID}" \
     -var="aws_region=${AWS_DEFAULT_REGION}" \
     -var="environment=${ENVIRONMENT}" \
-    -var="project_name=${PROJECT_NAME}"
+    -var="project_name=${PROJECT_NAME}" \
+    -var="state_bucket_name=${state_bucket_name}"
 
 # Ask for confirmation
 read -p "Do you want to apply these changes? (yes/no) " answer
@@ -48,7 +49,8 @@ terraform apply -auto-approve \
     -var="aws_account_id=${AWS_ACCOUNT_ID}" \
     -var="aws_region=${AWS_DEFAULT_REGION}" \
     -var="environment=${ENVIRONMENT}" \
-    -var="project_name=${PROJECT_NAME}"
+    -var="project_name=${PROJECT_NAME}" \
+    -var="state_bucket_name=${state_bucket_name}"
 
 # Test the setup
 echo "Testing the setup..."
@@ -71,4 +73,5 @@ terraform destroy -auto-approve \
     -var="aws_account_id=${AWS_ACCOUNT_ID}" \
     -var="aws_region=${AWS_DEFAULT_REGION}" \
     -var="environment=${ENVIRONMENT}" \
-    -var="project_name=${PROJECT_NAME}"
+    -var="project_name=${PROJECT_NAME}" \
+    -var="state_bucket_name=${state_bucket_name}"
