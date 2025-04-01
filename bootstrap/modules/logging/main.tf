@@ -65,10 +65,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "logging_bucket_lifecycle" {
   }
 }
 
-# Configure logging for the state bucket if provided
-resource "aws_s3_bucket_logging" "state_bucket_logging" {
-  count = var.use_localstack || var.state_bucket_id == null ? 0 : 1
-  bucket = var.state_bucket_id
-  target_bucket = aws_s3_bucket.logging_bucket[0].id
-  target_prefix = "state-bucket-logs/"
-}
+# Temporarily disabled state bucket logging to avoid dependency issues
+# We'll configure this manually after the bootstrap process
+# resource "aws_s3_bucket_logging" "state_bucket_logging" {
+#   bucket = var.state_bucket_id
+#   target_bucket = aws_s3_bucket.logging_bucket[0].id
+#   target_prefix = "state-bucket-logs/"
+# }
