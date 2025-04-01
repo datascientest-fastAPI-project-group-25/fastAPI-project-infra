@@ -21,7 +21,7 @@ locals {
 # GitHub Actions Role for bootstrapping
 resource "aws_iam_role" "github_actions_bootstrap_role" {
   count = var.use_localstack ? 0 : 1
-  name = "GitHubActionsBootstrapRole"
+  name = "FastAPIProjectBootstrapInfraRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -34,7 +34,7 @@ resource "aws_iam_role" "github_actions_bootstrap_role" {
         Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
           StringEquals = {
-            "token.actions.githubusercontent.com:sub": "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub": "repo:${var.github_org}/${var.github_repo}:*"
           }
         }
       }
@@ -42,7 +42,7 @@ resource "aws_iam_role" "github_actions_bootstrap_role" {
   })
 
   tags = {
-    Name        = "GitHubActionsBootstrapRole"
+    Name        = "FastAPIProjectBootstrapInfraRole"
     Environment = var.environment
     Project     = var.project_name
     Terraform   = "true"

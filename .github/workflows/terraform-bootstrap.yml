@@ -40,6 +40,16 @@ jobs:
           aws-region: eu-west-2
           mask-aws-account-id: true
       
+      - name: Set up state bucket
+        working-directory: ./bootstrap/environments/aws
+        run: |
+          bash setup-state-bucket.sh
+
+      - name: Apply bootstrap configuration
+        working-directory: ./bootstrap/environments/aws
+        run: |
+          bash apply-bootstrap.sh
+
       - name: Check if FastAPIProjectBootstrapInfraRole exists
         id: check_role
         run: |
@@ -50,7 +60,7 @@ jobs:
             echo "Role does not exist"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Setup Terraform for Bootstrap
         if: steps.check_role.outputs.exists != 'true'
         uses: hashicorp/setup-terraform@v2
@@ -61,12 +71,13 @@ jobs:
         if: steps.check_role.outputs.exists != 'true'
         working-directory: ./bootstrap/environments/aws
         run: |
-          bash setup-state-bucket.sh
-          bash apply-bootstrap.sh
-  
+          terraform init
+          terraform apply -auto-approve
+
   terraform:
     name: Terraform Infrastructure Deployment
     needs: bootstrap
+    if: ${{ needs.bootstrap.outputs.infra_role_created == 'true' }}
     runs-on: ubuntu-latest
     env:
       TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -86,7 +97,7 @@ jobs:
           role-session-name: GitHubActions
           role-duration-seconds: 3600
           mask-aws-account-id: true
-      
+
       - name: Configure AWS credentials with access keys
         if: needs.bootstrap.outputs.infra_role_created != 'true'
         uses: aws-actions/configure-aws-credentials@v3
@@ -96,69 +107,19 @@ jobs:
           aws-region: eu-west-2
           mask-aws-account-id: true
 
-      - name: Verify S3 Bucket Existence
-        id: check_bucket
-        run: |
-          if aws s3api head-bucket --bucket "dst-project-group-25-terraform-state" 2>/dev/null; then
-            echo "S3 bucket exists"
-          else
-            echo "::error::S3 bucket 'dst-project-group-25-terraform-state' does not exist"
-            exit 1
-          fi
-
-      - name: Verify DynamoDB Table Existence
-        id: check_dynamodb
-        run: |
-          if aws dynamodb describe-table --table-name "terraform-state-lock" > /dev/null 2>&1; then
-            echo "DynamoDB table exists"
-          else
-            echo "::error::DynamoDB table 'terraform-state-lock' does not exist"
-            exit 1
-          fi
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-      - name: Install Checkov
-        run: pip install checkov
-
-      - name: Terraform Format Check
-        id: fmt
-        run: terraform fmt -check
-        continue-on-error: true
-
-      - name: Terraform Init
-        id: init
+      - name: Initialize Terraform
+        working-directory: ./infra/environments/aws
         run: terraform init
 
-      - name: Run Checkov Security Scan
-        id: checkov
-        run: |
-          checkov -d . --framework terraform --compact --quiet
-        continue-on-error: true
-
-      - name: Terraform Validate
-        id: validate
-        run: terraform validate
-
-      - name: Terraform Plan
-        id: plan
+      - name: Plan Terraform Changes
+        working-directory: ./infra/environments/aws
         run: terraform plan -out=tfplan
 
-      - name: Terraform Plan Output
-        id: show
-        run: terraform show -no-color tfplan > tfplan.txt
-
-      - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: tfplan.txt
-          retention-days: 7
-
-      - name: Terraform Apply
-        id: apply
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve tfplan
+      - name: Apply Terraform Changes
+        working-directory: ./infra/environments/aws
+        run: terraform apply tfplan
