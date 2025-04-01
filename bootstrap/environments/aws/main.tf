@@ -1,6 +1,5 @@
 terraform {
-  # Using local state for testing
-  # No backend configuration means Terraform will use local state
+  backend "s3" {}
   required_providers {
     aws = {
       source  = "hashicorp/aws"
