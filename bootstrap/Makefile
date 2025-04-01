@@ -44,7 +44,7 @@ local-destroy:
 	cd environments/local && terraform destroy
 
 # AWS targets
-.PHONY: aws-init aws-plan aws-apply aws-destroy aws-test
+.PHONY: aws-init aws-plan aws-apply aws-destroy aws-test aws-setup-state aws-apply-bootstrap
 
 # Test bootstrap in AWS
 aws-test: validate-aws-env
@@ -54,6 +54,14 @@ cd environments/aws && ./test-bootstrap.sh
 aws-prepare: validate-aws-env
 	@echo "Preparing AWS environment..."
 	cd environments/aws && ./package-lambda.sh
+
+aws-setup-state: validate-aws-env
+	@echo "Setting up Terraform state resources in AWS..."
+	cd environments/aws && ./setup-state-bucket.sh
+
+aws-apply-bootstrap: validate-aws-env
+	@echo "Applying bootstrap resources to AWS (skipping state resources)..."
+	cd environments/aws && ./apply-bootstrap.sh
 
 aws-init: validate-aws-env aws-prepare
 	@echo "Initializing Terraform for AWS environment..."
@@ -97,6 +105,8 @@ help:
 	@echo ""
 	@echo "AWS Environment:"
 	@echo "  aws-test         - Test bootstrap configuration (creates and destroys resources)"
+	@echo "  aws-setup-state  - Set up S3 bucket and DynamoDB table for Terraform state"
+	@echo "  aws-apply-bootstrap - Apply bootstrap resources (skipping state resources)"
 	@echo "  aws-init         - Initialize Terraform for AWS environment"
 	@echo "  aws-plan         - Plan changes for AWS environment"
 	@echo "  aws-apply        - Apply changes to AWS environment"
