@@ -1,0 +1,98 @@
+# Helper functions
+check_defined = \
+    $(strip $(foreach 1,$1, \
+        $(call __check_defined,$1,$(strip $(value 2)))))
+__check_defined = \
+    $(if $(value $1),, \
+        $(error Environment variable $1$(if $2, ($2)) is not set))
+
+# Environment validation
+validate-aws-env:
+	$(call check_defined, AWS_ACCESS_KEY_ID, AWS access key)
+	$(call check_defined, AWS_SECRET_ACCESS_KEY, AWS secret key)
+	$(call check_defined, AWS_REGION, AWS region)
+
+# LocalStack targets
+.PHONY: local-init local-plan local-apply local-destroy start-localstack stop-localstack
+
+start-localstack:
+	@echo "Starting LocalStack..."
+	docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
+
+stop-localstack:
+	@echo "Stopping LocalStack..."
+	docker stop localstack || true
+	docker rm localstack || true
+
+local-init:
+	@echo "Initializing Terraform for local environment..."
+	cd environments/local && terraform init
+
+local-plan:
+	@echo "Planning local environment changes..."
+	cd environments/local && terraform plan
+
+local-apply:
+	@echo "Applying local environment changes..."
+	cd environments/local && terraform apply
+
+local-destroy:
+	@echo "Destroying local environment..."
+	cd environments/local && terraform destroy
+
+# AWS targets
+.PHONY: aws-init aws-plan aws-apply aws-destroy
+
+aws-prepare: validate-aws-env
+	@echo "Preparing AWS environment..."
+	cd environments/aws && ./package-lambda.sh
+
+aws-init: validate-aws-env aws-prepare
+	@echo "Initializing Terraform for AWS environment..."
+	cd environments/aws && terraform init
+
+aws-plan: validate-aws-env
+	@echo "Planning AWS environment changes..."
+	cd environments/aws && terraform plan
+
+aws-apply: validate-aws-env
+	@echo "Applying AWS environment changes..."
+	cd environments/aws && terraform apply
+
+aws-destroy: validate-aws-env
+	@echo "Destroying AWS environment..."
+	cd environments/aws && terraform destroy
+
+# Combined targets
+.PHONY: clean
+
+clean:
+	@echo "Cleaning up..."
+	find . -type d -name ".terraform" -exec rm -rf {} +
+	find . -type f -name ".terraform.lock.hcl" -delete
+	find . -type f -name "terraform.tfstate*" -delete
+
+# Help
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo ""
+	@echo "Setup:"
+	@echo "  aws-prepare     - Package Lambda function for AWS deployment"
+	@echo "Local Environment:"
+	@echo "  start-localstack  - Start LocalStack container"
+	@echo "  stop-localstack   - Stop LocalStack container"
+	@echo "  local-init       - Initialize Terraform for local environment"
+	@echo "  local-plan       - Plan changes for local environment"
+	@echo "  local-apply      - Apply changes to local environment"
+	@echo "  local-destroy    - Destroy local environment"
+	@echo ""
+	@echo "AWS Environment:"
+	@echo "  aws-init         - Initialize Terraform for AWS environment"
+	@echo "  aws-plan         - Plan changes for AWS environment"
+	@echo "  aws-apply        - Apply changes to AWS environment"
+	@echo "  aws-destroy      - Destroy AWS environment"
+	@echo ""
+	@echo "Other:"
+	@echo "  clean            - Clean up Terraform files"
+	@echo "  help             - Show this help message"

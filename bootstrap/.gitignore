@@ -1,0 +1,27 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+.terraform.lock.hcl
+
+# Lambda build artifacts
+**/notification_handler.zip
+build/
+
+# Local development
+local-infra/
+.localstack/
+
+# Environment-specific
+.env
+*.local
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
