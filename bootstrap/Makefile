@@ -8,9 +8,9 @@ __check_defined = \
 
 # Environment validation
 validate-aws-env:
-	$(call check_defined, AWS_ACCESS_KEY_ID, AWS access key)
-	$(call check_defined, AWS_SECRET_ACCESS_KEY, AWS secret key)
-	$(call check_defined, AWS_REGION, AWS region)
+$(call check_defined, AWS_ACCESS_KEY_ID, AWS access key)
+$(call check_defined, AWS_SECRET_ACCESS_KEY, AWS secret key)
+$(call check_defined, AWS_DEFAULT_REGION, AWS region)
 
 # LocalStack targets
 .PHONY: local-init local-plan local-apply local-destroy start-localstack stop-localstack
@@ -44,7 +44,12 @@ local-destroy:
 	cd environments/local && terraform destroy
 
 # AWS targets
-.PHONY: aws-init aws-plan aws-apply aws-destroy
+.PHONY: aws-init aws-plan aws-apply aws-destroy aws-test
+
+# Test bootstrap in AWS
+aws-test: validate-aws-env
+@echo "Testing AWS bootstrap configuration..."
+cd environments/aws && ./test-bootstrap.sh
 
 aws-prepare: validate-aws-env
 	@echo "Preparing AWS environment..."
@@ -91,6 +96,7 @@ help:
 	@echo "  local-destroy    - Destroy local environment"
 	@echo ""
 	@echo "AWS Environment:"
+	@echo "  aws-test         - Test bootstrap configuration (creates and destroys resources)"
 	@echo "  aws-init         - Initialize Terraform for AWS environment"
 	@echo "  aws-plan         - Plan changes for AWS environment"
 	@echo "  aws-apply        - Apply changes to AWS environment"
