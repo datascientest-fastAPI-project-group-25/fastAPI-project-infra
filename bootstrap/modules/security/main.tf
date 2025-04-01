@@ -78,9 +78,76 @@ resource "aws_iam_role_policy" "github_actions_bootstrap_policy" {
           "iam:AttachRolePolicy",
           "iam:DetachRolePolicy",
           "iam:DeleteRole",
-          "sts:AssumeRole"
+          "sts:AssumeRole",
+          "sts:AssumeRoleWithWebIdentity"
         ],
         Resource = var.resource_arns
+      },
+      {
+        Effect = "Allow",
+        Action = "sts:AssumeRole",
+        Resource = "arn:aws:iam::${var.aws_account_id}:role/FastAPIProjectInfraRole"
+      }
+    ]
+  })
+}
+
+# GitHub Actions Role for infrastructure deployment
+resource "aws_iam_role" "github_actions_infra_role" {
+  count = var.use_localstack ? 0 : 1
+  name = "FastAPIProjectBootstrapInfraRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = local.github_actions_oidc_arn
+        },
+        Action = "sts:AssumeRoleWithWebIdentity",
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:sub": "repo:${var.github_org}/${var.github_repo}:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "FastAPIProjectBootstrapInfraRole"
+    Environment = var.environment
+    Project     = var.project_name
+    Terraform   = "true"
+  }
+}
+
+# GitHub Actions Infrastructure Policy
+resource "aws_iam_role_policy" "github_actions_infra_policy" {
+  count = var.use_localstack ? 0 : 1
+  name = "GitHubActionsInfraPolicy"
+  role = aws_iam_role.github_actions_infra_role[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "ec2:*",
+          "iam:GetRole",
+          "iam:PassRole",
+          "lambda:*"
+        ],
+        Resource = "*"
       }
     ]
   })

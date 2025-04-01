@@ -1,4 +1,4 @@
-name: Terraform Deployment
+name: Terraform Bootstrap Infrastructure
 
 on:
   push:
@@ -18,9 +18,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  terraform:
-    name: Terraform Deployment
+  bootstrap:
+    name: Bootstrap Infrastructure
     runs-on: ubuntu-latest
+    outputs:
+      infra_role_created: ${{ steps.check_role.outputs.exists }}
     env:
       TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
@@ -33,10 +35,65 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/FastAPIProjectInfraRole
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+          mask-aws-account-id: true
+      
+      - name: Check if FastAPIProjectBootstrapInfraRole exists
+        id: check_role
+        run: |
+          if aws iam get-role --role-name FastAPIProjectBootstrapInfraRole 2>/dev/null; then
+            echo "Role exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Role does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Setup Terraform for Bootstrap
+        if: steps.check_role.outputs.exists != 'true'
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+      
+      - name: Create Bootstrap Resources
+        if: steps.check_role.outputs.exists != 'true'
+        working-directory: ./bootstrap/environments/aws
+        run: |
+          bash setup-state-bucket.sh
+          bash apply-bootstrap.sh
+  
+  terraform:
+    name: Terraform Infrastructure Deployment
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+      TF_VAR_github_repo: ${{ github.repository }}
+      TF_INPUT: false
+      TF_IN_AUTOMATION: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials with OIDC
+        if: needs.bootstrap.outputs.infra_role_created == 'true'
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/FastAPIProjectBootstrapInfraRole
           aws-region: eu-west-2
           role-session-name: GitHubActions
           role-duration-seconds: 3600
+          mask-aws-account-id: true
+      
+      - name: Configure AWS credentials with access keys
+        if: needs.bootstrap.outputs.infra_role_created != 'true'
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
           mask-aws-account-id: true
 
       - name: Verify S3 Bucket Existence
