@@ -3,8 +3,11 @@
 # Source environment variables
 source ../../scripts/load-env.sh
 
-BUCKET_NAME="${state_bucket_name}"
+# Construct bucket name using AWS account ID
+BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
 REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+
+echo "Setting up state bucket: ${BUCKET_NAME} in region: ${REGION}"
 
 echo "Checking for existing bucket..."
 if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
