@@ -108,16 +108,6 @@ jobs:
           fi
           bash setup-state-bucket.sh
 
-      - name: Apply bootstrap configuration
-        working-directory: ./bootstrap/environments/aws
-        run: |
-          if [ ! -f "apply-bootstrap.sh" ]; then
-            echo "Error: apply-bootstrap.sh not found"
-            ls -la
-            exit 1
-          fi
-          bash apply-bootstrap.sh
-
       - name: Package Lambda function
         working-directory: ./bootstrap/environments/aws
         run: |
@@ -127,6 +117,16 @@ jobs:
             exit 1
           fi
           bash package-lambda.sh
+
+      - name: Apply bootstrap configuration
+        working-directory: ./bootstrap/environments/aws
+        run: |
+          if [ ! -f "apply-bootstrap.sh" ]; then
+            echo "Error: apply-bootstrap.sh not found"
+            ls -la
+            exit 1
+          fi
+          bash apply-bootstrap.sh
 
       - name: Check if FastAPIProjectBootstrapInfraRole exists
         id: check_role
