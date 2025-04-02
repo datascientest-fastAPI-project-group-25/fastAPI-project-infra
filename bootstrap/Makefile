@@ -29,14 +29,19 @@ act-terraform:
 		--secret-file .env.local-test \
 		--container-architecture linux/amd64 --bind
 
+# Load environment variables from .env files
+load-env:
+	@echo "Loading environment variables from .env files..."
+	@bash -c "source scripts/load-env.sh"
+
 # Environment validation for AWS operations
-validate-aws-env:
+validate-aws-env: load-env
 	$(call check_defined, AWS_ACCESS_KEY_ID, AWS access key)
 	$(call check_defined, AWS_SECRET_ACCESS_KEY, AWS secret key)
 	$(call check_defined, AWS_DEFAULT_REGION, AWS region)
 
 # LocalStack targets
-.PHONY: local-init local-plan local-apply local-destroy start-localstack stop-localstack
+.PHONY: local-init local-plan local-apply local-destroy start-localstack stop-localstack localstack-bootstrap-dryrun
 
 start-localstack:
 	@echo "Starting LocalStack..."
@@ -66,12 +71,16 @@ local-destroy:
 	@echo "Destroying local environment..."
 	cd environments/local && terraform destroy
 
-# AWS targets
-.PHONY: aws-init aws-plan aws-apply aws-destroy aws-test aws-setup-state aws-apply-bootstrap
+localstack-bootstrap-dryrun:
+	@echo "Running bootstrap dryrun in LocalStack (create, test, destroy bucket)..."
+	cd environments/local && ./localstack-bootstrap-dryrun.sh
 
-aws-test: validate-aws-env
-	@echo "Testing AWS bootstrap configuration..."
-	cd environments/aws && ./test-bootstrap.sh
+# AWS targets
+.PHONY: load-env aws-init aws-plan aws-apply aws-destroy aws-setup-state aws-apply-bootstrap aws-bootstrap-dryrun
+
+# aws-test: validate-aws-env
+# 	@echo "Testing AWS bootstrap configuration..."
+# 	cd environments/aws && ./test-bootstrap.sh
 
 aws-prepare: validate-aws-env
 	@echo "Preparing AWS environment..."
@@ -84,6 +93,10 @@ aws-setup-state: validate-aws-env
 aws-apply-bootstrap: validate-aws-env
 	@echo "Applying bootstrap resources to AWS (skipping state resources)..."
 	cd environments/aws && ./apply-bootstrap.sh
+
+aws-bootstrap-dryrun:
+	@echo "Running bootstrap dryrun (create, test, destroy bucket in us-east-1)..."
+	cd environments/aws && ./aws-bootstrap-dryrun.sh
 
 aws-init: validate-aws-env aws-prepare
 	@echo "Initializing Terraform for AWS environment..."
@@ -128,11 +141,12 @@ help:
 	@echo "  local-plan       - Plan changes for local environment"
 	@echo "  local-apply      - Apply changes to local environment"
 	@echo "  local-destroy    - Destroy local environment"
+	@echo "  localstack-bootstrap-dryrun - Create, test, and destroy bucket in LocalStack (dryrun)"
 	@echo ""
 	@echo "AWS Environment:"
-	@echo "  aws-test         - Test bootstrap configuration (creates and destroys resources)"
 	@echo "  aws-setup-state  - Set up S3 bucket and DynamoDB table for Terraform state"
 	@echo "  aws-apply-bootstrap - Apply bootstrap resources (skipping state resources)"
+	@echo "  aws-bootstrap-dryrun - Create, test, and destroy bucket in us-east-1 (dryrun)"
 	@echo "  aws-init         - Initialize Terraform for AWS environment"
 	@echo "  aws-plan         - Plan changes for AWS environment"
 	@echo "  aws-apply        - Apply changes to AWS environment"

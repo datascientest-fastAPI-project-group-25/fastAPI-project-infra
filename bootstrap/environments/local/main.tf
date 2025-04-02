@@ -10,11 +10,11 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   # LocalStack specific settings
   access_key = "test"
   secret_key = "test"
-  
+
   # LocalStack endpoint configurations
   endpoints {
     s3       = "http://localhost:4566"
@@ -72,6 +72,7 @@ module "security" {
   state_bucket_id   = module.state.state_bucket_id
   lambda_zip_path   = var.lambda_zip_path
   aws_region        = var.aws_region
+  aws_account_id    = var.aws_account_id
   resource_arns     = ["*"]  # Less restrictive for local development
 }
 
