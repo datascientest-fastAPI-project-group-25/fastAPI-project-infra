@@ -55,6 +55,8 @@ export AWS_SECRET_ACCESS_KEY="your_secret"
 export AWS_REGION="your_region"
 ```
 
+   For GitHub Actions, see [AWS Credentials Setup](docs/README-AWS-CREDENTIALS.md) for instructions on setting up AWS credentials as GitHub secrets.
+
 2. Package Lambda and deploy bootstrap:
 ```bash
 cd bootstrap/environments/aws
@@ -89,6 +91,7 @@ make aws-apply
 - [Bootstrap Documentation](bootstrap/README.md)
 - [Terraform Documentation](terraform/README.md)
 - [Scripts Documentation](scripts/README.md)
+- [AWS Credentials Setup](docs/README-AWS-CREDENTIALS.md)
 
 ## License
 
