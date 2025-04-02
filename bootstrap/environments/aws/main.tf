@@ -15,7 +15,7 @@ provider "aws" {
 locals {
   # Use environment variables or fallback to computed values
   aws_region = coalesce(var.aws_region, "eu-west-2")
-  s3_bucket_name = coalesce(var.state_bucket_name, "fastapi-project-terraform-state-${var.aws_account_id}")
+  state_bucket_name = coalesce(var.state_bucket_name, "fastapi-project-terraform-state-${var.aws_account_id}")
   logs_bucket_name = coalesce(var.logs_bucket_name, "fastapi-project-terraform-logs-${var.aws_account_id}")
 
   # Common tags
@@ -32,7 +32,7 @@ module "state" {
 
   use_localstack      = false
   dynamodb_table_name = coalesce(var.dynamodb_table_name, "terraform-state-lock")
-  s3_bucket_name      = local.s3_bucket_name
+  s3_bucket_name      = local.state_bucket_name
   aws_region         = local.aws_region
   environment        = var.environment
   project_name       = var.project_name

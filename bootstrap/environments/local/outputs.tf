@@ -1,6 +1,6 @@
 output "state_bucket_name" {
   description = "Name of the local directory simulating S3 bucket for Terraform state"
-  value       = local.s3_bucket_name
+  value       = local.state_bucket_name
 }
 
 output "logs_bucket_name" {
