@@ -39,3 +39,9 @@ variable "lambda_zip_path" {
   type        = string
   default     = "notification_handler.zip"
 }
+
+variable "aws_account_id" {
+  description = "AWS account ID (dummy value for local testing)"
+  type        = string
+  default     = "123456789012"
+}

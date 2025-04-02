@@ -24,6 +24,10 @@ load_env "$ROOT_ENV"
 BOOTSTRAP_ENV="${SCRIPT_DIR}/../.env"
 load_env "$BOOTSTRAP_ENV"
 
+# Load bootstrap environment specific .env.bootstrap if it exists
+BOOTSTRAP_ENV_BOOTSTRAP="${SCRIPT_DIR}/../.env.bootstrap"
+load_env "$BOOTSTRAP_ENV_BOOTSTRAP"
+
 # Process environment variables
 # Replace any ${VAR} or $VAR in the values
 for var in $(env | grep -v '^_' | cut -d= -f1); do
