@@ -32,7 +32,7 @@ fi
 # Check if DynamoDB table exists
 DYNAMODB_TABLE="terraform-state-lock"
 echo "Checking for DynamoDB table: $DYNAMODB_TABLE"
-if ! aws dynamodb describe-table --table-name "${DYNAMODB_TABLE}" --region us-east-1 > /dev/null 2>&1; then
+if ! aws dynamodb describe-table --table-name "${DYNAMODB_TABLE}" --region "${AWS_DEFAULT_REGION}" > /dev/null 2>&1; then
     echo "Error: DynamoDB table does not exist. Please run setup-state-bucket.sh first."
     exit 1
 fi
