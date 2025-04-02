@@ -133,7 +133,10 @@ jobs:
         if: steps.check_role.outputs.exists != 'true'
         working-directory: ./bootstrap/environments/aws
         run: |
-          terraform init
+          BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+          terraform init -reconfigure \
+            -backend-config=backend.hcl \
+            -backend-config="bucket=${BUCKET_NAME}"
           terraform apply -auto-approve
 
   terraform:
@@ -199,7 +202,11 @@ jobs:
 
       - name: Initialize Terraform
         working-directory: ./bootstrap/environments/aws
-        run: terraform init
+        run: |
+          BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+          terraform init -reconfigure \
+            -backend-config=backend.hcl \
+            -backend-config="bucket=${BUCKET_NAME}"
 
       - name: Plan Terraform Changes
         working-directory: ./bootstrap/environments/aws
