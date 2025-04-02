@@ -6,7 +6,7 @@ terraform.tfvars
 .terraform.lock.hcl
 
 # Lambda build artifacts
-**/notification_handler.zip
+# **/notification_handler.zip (commented out to include in repo for GitHub Actions)
 build/
 
 # Local development
