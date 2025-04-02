@@ -6,7 +6,6 @@ terraform {
       version = "~> 4.0"
     }
   }
-  # Added comment to trigger a new workflow run
 }
 
 provider "aws" {
