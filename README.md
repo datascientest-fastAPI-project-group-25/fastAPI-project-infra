@@ -1,80 +1,98 @@
 # FastAPI Project Infrastructure
 
-This repository contains the infrastructure as code (IaC) for the FastAPI project using Terraform to provision AWS resources. It includes a GitHub Actions workflow for automated deployment using OpenID Connect (OIDC) for secure authentication with AWS.
+Infrastructure as Code (IaC) repository for managing the FastAPI project infrastructure using Terraform.
 
-## Prerequisites
+## Project Structure
 
-- [Terraform](https://www.terraform.io/downloads.html) (v1.0.0+)
-- [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
-- [Checkov](https://github.com/bridgecrewio/checkov) for security scanning
-
-## Local Development
-
-### Setup
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra.git
-   cd fastAPI-project-infra
-   ```
-
-2. Create a `.env` file based on the `.env.example` template:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Edit the `.env` file with your AWS credentials:
-   ```
-   AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY_ID
-   AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_ACCESS_KEY
-   AWS_REGION=eu-west-2
-   ```
-
-### Running Terraform Locally
-
-Use the Makefile to run Terraform commands:
-
-```bash
-make terraform
+```
+.
+├── bootstrap/           # Infrastructure bootstrap code
+│   ├── environments/    # Environment-specific configurations
+│   │   ├── local/      # LocalStack development setup
+│   │   └── aws/        # AWS production bootstrap
+│   ├── modules/        # Reusable Terraform modules
+│   │   ├── state/      # State management (S3 + DynamoDB)
+│   │   ├── logging/    # Logging infrastructure
+│   │   └── security/   # IAM and Lambda resources
+│   ├── Makefile        # Bootstrap automation commands
+│   └── README.md       # Bootstrap documentation
+│
+├── terraform/          # Main infrastructure code
+│   ├── modules/        # Shared Terraform modules
+│   └── environments/   # Environment configurations
+│
+├── scripts/           # Utility scripts
+│   ├── checkov.sh
+│   ├── init-tflint.sh
+│   └── setup_state.sh
+│
+├── Makefile           # Main automation commands
+└── README.md         # This file
 ```
 
-Or run Terraform commands directly:
+## Getting Started
 
+### Local Development
+
+1. Start LocalStack:
 ```bash
-terraform init
-terraform plan
-terraform apply
+cd bootstrap/environments/local
+make start-localstack
 ```
 
-## GitHub Actions CI/CD Pipeline
+2. Initialize and apply bootstrap:
+```bash
+make local-init
+make local-apply
+```
 
-The repository includes a GitHub Actions workflow that automatically deploys the infrastructure when changes are pushed to the main branch.
+### AWS Deployment
 
-### Setup for GitHub Actions
+1. Configure AWS credentials:
+```bash
+export AWS_ACCESS_KEY_ID="your_key"
+export AWS_SECRET_ACCESS_KEY="your_secret"
+export AWS_REGION="your_region"
+```
 
-1. In your GitHub repository, go to Settings > Secrets and add the following secret:
-   - `AWS_ACCOUNT_ID`: Your AWS account ID
+   For GitHub Actions, see [AWS Credentials Setup](docs/README-AWS-CREDENTIALS.md) for instructions on setting up AWS credentials as GitHub secrets.
 
-2. Ensure the AWS OIDC provider is set up in your AWS account (this is automated in the Terraform configuration)
+2. Package Lambda and deploy bootstrap:
+```bash
+cd bootstrap/environments/aws
+make aws-prepare
+make aws-init
+make aws-apply
+```
 
-3. The GitHub Actions workflow will use OIDC to authenticate with AWS, assuming the `GitHubActionsRole` role
+## Development Workflow
 
-## Infrastructure Components
+1. Bootstrap infrastructure provides:
+   - S3 bucket for Terraform state
+   - DynamoDB table for state locking
+   - Logging infrastructure
+   - IAM roles and policies
+   - Lambda for state change notifications
 
-- **VPC**: A basic VPC setup with a subnet and internet gateway
-- **S3 Bucket**: For storing Terraform state
-- **DynamoDB Table**: For Terraform state locking
-- **IAM Roles**: For GitHub Actions to access AWS resources securely using OIDC
-
-## Security
-
-- Checkov is used to scan the Terraform code for security issues
-- OIDC is used for secure authentication between GitHub Actions and AWS
-- S3 bucket for Terraform state has encryption enabled
+2. Main infrastructure uses the bootstrapped resources for:
+   - State management
+   - Access control
+   - Resource organization
 
 ## Contributing
 
-1. Create a feature branch from main
-2. Make your changes
-3. Submit a pull request to main
-4. After approval and merge, GitHub Actions will automatically deploy the changes
+1. Create a new branch for your changes
+2. Make your changes following the project structure
+3. Test changes locally using LocalStack
+4. Create a pull request for review
+
+## Documentation
+
+- [Bootstrap Documentation](bootstrap/README.md)
+- [Terraform Documentation](terraform/README.md)
+- [Scripts Documentation](scripts/README.md)
+- [AWS Credentials Setup](docs/README-AWS-CREDENTIALS.md)
+
+## License
+
+See [LICENSE](LICENSE) file.
