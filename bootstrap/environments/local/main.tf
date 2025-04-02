@@ -33,7 +33,7 @@ provider "aws" {
 }
 
 locals {
-  s3_bucket_name = "localstack-s3-bucket"
+  state_bucket_name = "localstack-s3-bucket"
   logs_bucket_name = "localstack-logs-bucket"
 }
 
@@ -42,7 +42,7 @@ module "state" {
 
   use_localstack      = true
   dynamodb_table_name = var.dynamodb_table_name
-  s3_bucket_name      = local.s3_bucket_name
+  s3_bucket_name      = local.state_bucket_name
   aws_region         = var.aws_region
   environment        = var.environment
   project_name       = var.project_name
