@@ -41,6 +41,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install AWS CLI
+        run: |
+          apt-get update && apt-get install -y curl unzip
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+          aws --version
+
       - name: Verify required files
         run: |
           required_files=(
@@ -49,7 +57,7 @@ jobs:
             "bootstrap/environments/aws/main.tf"
             "bootstrap/scripts/load-env.sh"
           )
-          
+
           for file in "${required_files[@]}"; do
             if [ ! -f "$file" ]; then
               echo "Error: Required file $file not found"
@@ -136,6 +144,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Install AWS CLI
+        run: |
+          apt-get update && apt-get install -y curl unzip
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+          aws --version
 
       - name: Configure AWS credentials
         run: |

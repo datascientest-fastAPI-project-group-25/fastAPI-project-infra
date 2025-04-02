@@ -1,4 +1,4 @@
-region         = var.aws_region
+region         = "eu-west-2"
 key            = "bootstrap/terraform.tfstate"
 encrypt        = true
-dynamodb_table = var.dynamodb_table_name
+dynamodb_table = "terraform-state-lock"
