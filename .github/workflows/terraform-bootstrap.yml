@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:latest
+    defaults:
+      run:
+        shell: bash
     outputs:
       infra_role_created: ${{ steps.check_role.outputs.exists }}
     env:
@@ -140,6 +143,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ubuntu:latest
+    defaults:
+      run:
+        shell: bash
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
