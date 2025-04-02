@@ -118,6 +118,16 @@ jobs:
           fi
           bash apply-bootstrap.sh
 
+      - name: Package Lambda function
+        working-directory: ./bootstrap/environments/aws
+        run: |
+          if [ ! -f "package-lambda.sh" ]; then
+            echo "Error: package-lambda.sh not found"
+            ls -la
+            exit 1
+          fi
+          bash package-lambda.sh
+
       - name: Check if FastAPIProjectBootstrapInfraRole exists
         id: check_role
         run: |
