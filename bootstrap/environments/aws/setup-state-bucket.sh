@@ -13,7 +13,7 @@ echo "Checking for existing bucket..."
 if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
     echo "Found existing bucket. Checking its region..."
     CURRENT_REGION=$(aws s3api get-bucket-location --bucket "${BUCKET_NAME}" --query "LocationConstraint" --output text)
-    
+
     if [ "${CURRENT_REGION}" != "${REGION}" ]; then
         echo "Bucket exists in ${CURRENT_REGION}. Deleting for DSGVO compliance..."
         aws s3 rb "s3://${BUCKET_NAME}" --force
@@ -87,12 +87,17 @@ echo "${BUCKET_POLICY}" | aws s3api put-bucket-policy \
 
 # Create DynamoDB table for state locking
 DYNAMODB_TABLE="terraform-state-lock"
-echo "Creating DynamoDB table for state locking..."
-aws dynamodb create-table \
-    --table-name "${DYNAMODB_TABLE}" \
-    --attribute-definitions AttributeName=LockID,AttributeType=S \
-    --key-schema AttributeName=LockID,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST \
-    --region "${REGION}" || echo "DynamoDB table may already exist or you don't have permissions to create it."
+echo "Checking if DynamoDB table already exists..."
+if aws dynamodb describe-table --table-name "${DYNAMODB_TABLE}" --region "${REGION}" &>/dev/null; then
+    echo "DynamoDB table ${DYNAMODB_TABLE} already exists. Skipping creation."
+else
+    echo "Creating DynamoDB table for state locking..."
+    aws dynamodb create-table \
+        --table-name "${DYNAMODB_TABLE}" \
+        --attribute-definitions AttributeName=LockID,AttributeType=S \
+        --key-schema AttributeName=LockID,KeyType=HASH \
+        --billing-mode PAY_PER_REQUEST \
+        --region "${REGION}" || echo "Failed to create DynamoDB table. You may not have permissions to create it."
+fi
 
 echo "State bucket and DynamoDB setup complete in ${REGION}"
