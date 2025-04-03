@@ -4,6 +4,18 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/../../scripts/load-env.sh"
 
+# Check if running in Act
+if [ "$ACT" = "true" ]; then
+    echo "Running in Act - using mock mode"
+    echo "MOCK: Bootstrap applied successfully"
+    echo "MOCK: The following resources have been created:"
+    echo "MOCK: 1. Logging bucket for storing access logs"
+    echo "MOCK: 2. IAM roles for GitHub Actions"
+    echo "MOCK: 3. Lambda function for S3 event processing"
+    echo "MOCK: You can now use these resources with your FastAPI project."
+    exit 0
+fi
+
 # Verify AWS credentials
 echo "Verifying AWS credentials..."
 aws sts get-caller-identity
