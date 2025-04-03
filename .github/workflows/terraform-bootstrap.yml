@@ -23,7 +23,7 @@ jobs:
     name: Bootstrap Infrastructure
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:latest
+      image: catthehacker/ubuntu:act-latest
     defaults:
       run:
         shell: bash
@@ -46,8 +46,9 @@ jobs:
 
       - name: Install Terraform and AWS CLI
         run: |
+          export DEBIAN_FRONTEND=noninteractive
           apt-get update
-          apt-get install -y curl unzip
+          apt-get install -y curl unzip python3-pip
           # Install Terraform
           curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
           # Check if terraform exists and remove it if it's a directory
@@ -57,9 +58,8 @@ jobs:
           unzip -o terraform_1.5.7_linux_amd64.zip
           mv terraform /usr/bin/
           terraform --version
-          # Install AWS CLI
-          apt-get install -y python3-pip
-          pip3 install --break-system-packages awscli
+          # Install AWS CLI using pip directly
+          pip3 install awscli
           aws --version
 
       - name: Verify required files
@@ -106,6 +106,14 @@ jobs:
             ls -la
             exit 1
           fi
+
+          # Skip actual AWS operations when running in Act
+          if [ "$ACT" = "true" ]; then
+            echo "Running in Act - skipping actual AWS operations"
+            echo "MOCK: State bucket setup completed successfully"
+            exit 0
+          fi
+
           bash setup-state-bucket.sh
 
       - name: Package Lambda function
@@ -155,7 +163,7 @@ jobs:
     if: ${{ needs.bootstrap.outputs.infra_role_created == 'true' }}
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:latest
+      image: catthehacker/ubuntu:act-latest
     defaults:
       run:
         shell: bash
@@ -176,8 +184,9 @@ jobs:
 
       - name: Install Terraform and AWS CLI
         run: |
+          export DEBIAN_FRONTEND=noninteractive
           apt-get update
-          apt-get install -y curl unzip
+          apt-get install -y curl unzip python3-pip
           # Install Terraform
           curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
           # Check if terraform exists and remove it if it's a directory
@@ -187,9 +196,8 @@ jobs:
           unzip -o terraform_1.5.7_linux_amd64.zip
           mv terraform /usr/bin/
           terraform --version
-          # Install AWS CLI
-          apt-get install -y python3-pip
-          pip3 install --break-system-packages awscli
+          # Install AWS CLI using pip directly
+          pip3 install awscli
           aws --version
 
       - name: Configure AWS credentials
