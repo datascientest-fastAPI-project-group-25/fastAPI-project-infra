@@ -7,7 +7,7 @@ __check_defined = \
         $(error Environment variable $1$(if $2, ($2)) is not set))
 
 # GitHub Actions local testing with act
-.PHONY: act-bootstrap act-terraform
+.PHONY: act-bootstrap act-terraform act-mock
 
 act-bootstrap:
 	@if [ ! -f "../.env.local-test" ]; then \
@@ -26,6 +26,14 @@ act-terraform:
 	@echo "Testing terraform job locally with act..."
 	@cd .. && act -j terraform -W .github/workflows/terraform-bootstrap.yml \
 		--secret-file .env.local-test
+
+act-mock:
+	@if [ ! -f "../.env.local-test" ]; then \
+		echo "Error: .env.local-test file not found in root directory"; \
+		exit 1; \
+	fi
+	@echo "Testing workflow with mock AWS operations..."
+	@cd .. && ./act-mock.sh
 
 # Load environment variables from .env files
 load-env:
@@ -129,6 +137,7 @@ help:
 	@echo "GitHub Actions Testing:"
 	@echo "  act-bootstrap    - Test bootstrap job locally with act"
 	@echo "  act-terraform    - Test terraform job locally with act"
+	@echo "  act-mock        - Test workflow with mock AWS operations (recommended)"
 	@echo ""
 	@echo "Setup:"
 	@echo "  aws-prepare     - Package Lambda function for AWS deployment"
