@@ -1,5 +1,0 @@
-aws_account_id = "your-account-id"
-aws_region = "eu-west-2"
-github_actions_role_name = "FastAPIProjectInfraRole"
-github_org = "datascientest-fastAPI-project-group-25"
-github_repo = "fastAPI-project-infra"
