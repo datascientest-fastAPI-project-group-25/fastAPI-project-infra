@@ -11,6 +11,67 @@ export AWS_SECRET_ACCESS_KEY="test"
 export AWS_DEFAULT_REGION="us-east-1"
 export AWS_ACCOUNT_ID="123456789012"
 
+# Function to delete all versions and markers in LocalStack
+delete_all_versions_localstack() {
+    local bucket=$1
+    local endpoint=$2
+
+    # Keep looping until no more objects/versions are found
+    while true; do
+        # List all object versions and delete markers
+        VERSIONS=$(aws --endpoint-url=${endpoint} s3api list-object-versions --bucket "${bucket}" --output json 2>/dev/null)
+
+        # Check if we have any objects to delete
+        OBJECTS=$(echo "$VERSIONS" | jq -r '.Versions[]? | {Key:.Key, VersionId:.VersionId}' 2>/dev/null)
+        DELETE_MARKERS=$(echo "$VERSIONS" | jq -r '.DeleteMarkers[]? | {Key:.Key, VersionId:.VersionId}' 2>/dev/null)
+
+        # If no objects or markers, we're done
+        if [ -z "$OBJECTS" ] && [ -z "$DELETE_MARKERS" ]; then
+            echo "Bucket is empty of all versions."
+            break
+        fi
+
+        # Create a JSON file for the delete operation
+        echo '{"Objects": []}' > /tmp/delete_objects.json
+
+        # Add objects to the delete file
+        if [ -n "$OBJECTS" ]; then
+            echo "$OBJECTS" | jq -c '.' | while read -r obj; do
+                KEY=$(echo "$obj" | jq -r '.Key')
+                VERSION_ID=$(echo "$obj" | jq -r '.VersionId')
+                echo "Adding object for deletion: $KEY (version: $VERSION_ID)"
+                jq --arg key "$KEY" --arg vid "$VERSION_ID" '.Objects += [{"Key": $key, "VersionId": $vid}]' /tmp/delete_objects.json > /tmp/delete_objects_tmp.json
+                mv /tmp/delete_objects_tmp.json /tmp/delete_objects.json
+            done
+        fi
+
+        # Add delete markers to the delete file
+        if [ -n "$DELETE_MARKERS" ]; then
+            echo "$DELETE_MARKERS" | jq -c '.' | while read -r marker; do
+                KEY=$(echo "$marker" | jq -r '.Key')
+                VERSION_ID=$(echo "$marker" | jq -r '.VersionId')
+                echo "Adding delete marker for deletion: $KEY (version: $VERSION_ID)"
+                jq --arg key "$KEY" --arg vid "$VERSION_ID" '.Objects += [{"Key": $key, "VersionId": $vid}]' /tmp/delete_objects.json > /tmp/delete_objects_tmp.json
+                mv /tmp/delete_objects_tmp.json /tmp/delete_objects.json
+            done
+        fi
+
+        # Check if we have objects to delete
+        OBJECT_COUNT=$(jq '.Objects | length' /tmp/delete_objects.json)
+        if [ "$OBJECT_COUNT" -gt 0 ]; then
+            echo "Deleting $OBJECT_COUNT objects/markers in batch..."
+            aws --endpoint-url=${endpoint} s3api delete-objects --bucket "${bucket}" --delete file:///tmp/delete_objects.json
+        else
+            echo "No objects to delete."
+            break
+        fi
+    done
+
+    # Also do a regular recursive delete for good measure
+    echo "Performing recursive delete for any remaining objects..."
+    aws --endpoint-url=${endpoint} s3 rm "s3://${bucket}" --recursive
+}
+
 echo "Using LocalStack endpoint: ${LOCALSTACK_ENDPOINT}"
 echo "Using dummy AWS Account: ${AWS_ACCOUNT_ID}"
 
@@ -23,8 +84,11 @@ echo "Setting up state bucket: ${BUCKET_NAME}"
 
 echo "Checking for existing bucket..."
 if aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
-    echo "Found existing bucket. Deleting it for a clean test..."
-    aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3 rb "s3://${BUCKET_NAME}" --force
+    echo "Found existing bucket. Emptying and deleting it for a clean test..."
+    # Empty the bucket first
+    delete_all_versions_localstack "${BUCKET_NAME}" "${LOCALSTACK_ENDPOINT}"
+    # Now delete the empty bucket
+    aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3api delete-bucket --bucket "${BUCKET_NAME}"
 fi
 
 echo "Creating new state bucket in LocalStack..."
@@ -98,38 +162,70 @@ fi
 
 echo "=== STEP 3: Destroying the bucket ==="
 echo "Emptying bucket (including all versions)..."
-# List all object versions and delete markers
-VERSIONS=$(aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3api list-object-versions --bucket "${BUCKET_NAME}" --output json --query '{Objects: Objects[].{Key:Key,VersionId:VersionId}, DeleteMarkers: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)
 
-# Check if there are any objects or delete markers
-if [ -n "$VERSIONS" ] && [ "$VERSIONS" != "{}" ]; then
-    # Extract and delete objects
-    OBJECTS=$(echo "$VERSIONS" | jq -r '.Objects')
-    if [ -n "$OBJECTS" ] && [ "$OBJECTS" != "null" ]; then
-        echo "Deleting object versions..."
-        for OBJ in $(echo "$OBJECTS" | jq -c '.[]'); do
-            KEY=$(echo "$OBJ" | jq -r '.Key')
-            VERSION_ID=$(echo "$OBJ" | jq -r '.VersionId')
-            echo "Deleting object: $KEY (version: $VERSION_ID)"
-            aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3api delete-object --bucket "${BUCKET_NAME}" --key "$KEY" --version-id "$VERSION_ID"
-        done
-    fi
+# Function to delete all versions and markers in LocalStack
+delete_all_versions_localstack() {
+    local bucket=$1
+    local endpoint=$2
 
-    # Extract and delete delete markers
-    DELETE_MARKERS=$(echo "$VERSIONS" | jq -r '.DeleteMarkers')
-    if [ -n "$DELETE_MARKERS" ] && [ "$DELETE_MARKERS" != "null" ]; then
-        echo "Deleting delete markers..."
-        for MARKER in $(echo "$DELETE_MARKERS" | jq -c '.[]'); do
-            KEY=$(echo "$MARKER" | jq -r '.Key')
-            VERSION_ID=$(echo "$MARKER" | jq -r '.VersionId')
-            echo "Deleting delete marker: $KEY (version: $VERSION_ID)"
-            aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3api delete-object --bucket "${BUCKET_NAME}" --key "$KEY" --version-id "$VERSION_ID"
-        done
-    fi
-fi
+    # Keep looping until no more objects/versions are found
+    while true; do
+        # List all object versions and delete markers
+        VERSIONS=$(aws --endpoint-url=${endpoint} s3api list-object-versions --bucket "${bucket}" --output json 2>/dev/null)
 
-# Also do a regular recursive delete for good measure
-aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3 rm "s3://${BUCKET_NAME}" --recursive
+        # Check if we have any objects to delete
+        OBJECTS=$(echo "$VERSIONS" | jq -r '.Versions[]? | {Key:.Key, VersionId:.VersionId}' 2>/dev/null)
+        DELETE_MARKERS=$(echo "$VERSIONS" | jq -r '.DeleteMarkers[]? | {Key:.Key, VersionId:.VersionId}' 2>/dev/null)
+
+        # If no objects or markers, we're done
+        if [ -z "$OBJECTS" ] && [ -z "$DELETE_MARKERS" ]; then
+            echo "Bucket is empty of all versions."
+            break
+        fi
+
+        # Create a JSON file for the delete operation
+        echo '{"Objects": []}' > /tmp/delete_objects.json
+
+        # Add objects to the delete file
+        if [ -n "$OBJECTS" ]; then
+            echo "$OBJECTS" | jq -c '.' | while read -r obj; do
+                KEY=$(echo "$obj" | jq -r '.Key')
+                VERSION_ID=$(echo "$obj" | jq -r '.VersionId')
+                echo "Adding object for deletion: $KEY (version: $VERSION_ID)"
+                jq --arg key "$KEY" --arg vid "$VERSION_ID" '.Objects += [{"Key": $key, "VersionId": $vid}]' /tmp/delete_objects.json > /tmp/delete_objects_tmp.json
+                mv /tmp/delete_objects_tmp.json /tmp/delete_objects.json
+            done
+        fi
+
+        # Add delete markers to the delete file
+        if [ -n "$DELETE_MARKERS" ]; then
+            echo "$DELETE_MARKERS" | jq -c '.' | while read -r marker; do
+                KEY=$(echo "$marker" | jq -r '.Key')
+                VERSION_ID=$(echo "$marker" | jq -r '.VersionId')
+                echo "Adding delete marker for deletion: $KEY (version: $VERSION_ID)"
+                jq --arg key "$KEY" --arg vid "$VERSION_ID" '.Objects += [{"Key": $key, "VersionId": $vid}]' /tmp/delete_objects.json > /tmp/delete_objects_tmp.json
+                mv /tmp/delete_objects_tmp.json /tmp/delete_objects.json
+            done
+        fi
+
+        # Check if we have objects to delete
+        OBJECT_COUNT=$(jq '.Objects | length' /tmp/delete_objects.json)
+        if [ "$OBJECT_COUNT" -gt 0 ]; then
+            echo "Deleting $OBJECT_COUNT objects/markers in batch..."
+            aws --endpoint-url=${endpoint} s3api delete-objects --bucket "${bucket}" --delete file:///tmp/delete_objects.json
+        else
+            echo "No objects to delete."
+            break
+        fi
+    done
+
+    # Also do a regular recursive delete for good measure
+    echo "Performing recursive delete for any remaining objects..."
+    aws --endpoint-url=${endpoint} s3 rm "s3://${bucket}" --recursive
+}
+
+# Delete all versions from the bucket
+delete_all_versions_localstack "${BUCKET_NAME}" "${LOCALSTACK_ENDPOINT}"
 
 echo "Deleting bucket..."
 aws --endpoint-url=${LOCALSTACK_ENDPOINT} s3api delete-bucket --bucket "${BUCKET_NAME}"
