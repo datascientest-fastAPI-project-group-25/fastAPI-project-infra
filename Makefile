@@ -9,6 +9,9 @@ act_bootstrap: load_env
 act_terraform: load_env
 	@cd bootstrap && make act-terraform
 
+act_mock: load_env
+	@cd bootstrap && make act-mock
+
 # Check GitHub Actions setup
 check_gh:
 	@echo "Checking GitHub Actions setup..."
@@ -92,6 +95,6 @@ verify_local:
 	@test -f .env || { echo "Missing .env file"; exit 1; }
 	@test -f .env.local-test || { echo "Missing .env.local-test file"; exit 1; }
 
-.PHONY: load_env act_bootstrap act_terraform check_gh check_secrets set_secrets verify_local \
+.PHONY: load_env act_bootstrap act_terraform act_mock check_gh check_secrets set_secrets verify_local \
 	tf_init tf_fmt tf_validate tf_security tf_state_setup tf_init_aws tf_migrate_state migrate \
 	tf_plan tf_apply terraform tf_destroy
