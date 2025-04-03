@@ -42,6 +42,7 @@ terraform.rc
 # Temporary files
 *.log
 workflow_logs.txt
+.output.txt
 *.bak
 *.swp
 *.swo
