@@ -16,8 +16,7 @@ act-bootstrap:
 	fi
 	@echo "Testing bootstrap job locally with act..."
 	@cd .. && act -j bootstrap -W .github/workflows/terraform-bootstrap.yml \
-		--secret-file .env.local-test \
-		--container-architecture linux/amd64 --bind
+		--secret-file .env.local-test
 
 act-terraform:
 	@if [ ! -f "../.env.local-test" ]; then \
@@ -26,8 +25,7 @@ act-terraform:
 	fi
 	@echo "Testing terraform job locally with act..."
 	@cd .. && act -j terraform -W .github/workflows/terraform-bootstrap.yml \
-		--secret-file .env.local-test \
-		--container-architecture linux/amd64 --bind
+		--secret-file .env.local-test
 
 # Load environment variables from .env files
 load-env:
