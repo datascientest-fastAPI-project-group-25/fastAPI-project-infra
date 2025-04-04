@@ -5,7 +5,17 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/../../scripts/load-env.sh"
 
 # Set localstack endpoint
-export LOCALSTACK_ENDPOINT="http://localhost:4566"
+# Use "localstack" as the hostname when running in Docker, otherwise use "localhost"
+if [ -n "$LOCALSTACK_ENDPOINT" ]; then
+    echo "Using provided LOCALSTACK_ENDPOINT: $LOCALSTACK_ENDPOINT"
+else
+    # Check if we're running in Docker
+    if [ -f "/.dockerenv" ]; then
+        export LOCALSTACK_ENDPOINT="http://localstack:4566"
+    else
+        export LOCALSTACK_ENDPOINT="http://localhost:4566"
+    fi
+fi
 export AWS_ACCESS_KEY_ID="test"
 export AWS_SECRET_ACCESS_KEY="test"
 export AWS_DEFAULT_REGION="us-east-1"
