@@ -93,10 +93,28 @@ jobs:
 
       - name: Validate AWS credentials
         run: |
-          aws sts get-caller-identity || {
-            echo "Failed to validate AWS credentials"
-            exit 1
-          }
+          # Skip actual AWS operations when running in Act
+          if [ "$ACT" = "true" ]; then
+            echo "Running in Act - using localstack for AWS credential validation"
+            # Start localstack if it's not already running
+            if ! docker ps | grep -q localstack; then
+              echo "Starting LocalStack..."
+              docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
+              echo "Waiting for LocalStack to be ready..."
+              sleep 10
+            fi
+            # Use localstack endpoint for get-caller-identity
+            aws --endpoint-url=http://localhost:4566 sts get-caller-identity || {
+              echo "Failed to validate AWS credentials with localstack"
+              exit 1
+            }
+          else
+            # Use real AWS for get-caller-identity
+            aws sts get-caller-identity || {
+              echo "Failed to validate AWS credentials"
+              exit 1
+            }
+          fi
 
       - name: Set up state bucket
         working-directory: ./bootstrap/environments/aws
@@ -151,11 +169,27 @@ jobs:
         if: steps.check_role.outputs.exists != 'true'
         working-directory: ./bootstrap/environments/aws
         run: |
-          BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-          terraform init -reconfigure \
-            -backend-config=backend.hcl \
-            -backend-config="bucket=${BUCKET_NAME}"
-          terraform apply -auto-approve
+          # Skip actual AWS operations when running in Act
+          if [ "$ACT" = "true" ]; then
+            echo "Running in Act - using localstack for Terraform operations"
+            # Use localstack environment instead
+            cd ../localstack
+
+            # Initialize Terraform with local backend
+            terraform init
+
+            # Apply Terraform configuration
+            terraform apply -auto-approve
+
+            echo "MOCK: Bootstrap resources created successfully with localstack"
+          else
+            # Use real AWS for Terraform operations
+            BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+            terraform init -reconfigure \
+              -backend-config=backend.hcl \
+              -backend-config="bucket=${BUCKET_NAME}"
+            terraform apply -auto-approve
+          fi
 
   terraform:
     name: Terraform Infrastructure Deployment
@@ -213,10 +247,28 @@ jobs:
 
       - name: Validate AWS credentials
         run: |
-          aws sts get-caller-identity || {
-            echo "Failed to validate AWS credentials"
-            exit 1
-          }
+          # Skip actual AWS operations when running in Act
+          if [ "$ACT" = "true" ]; then
+            echo "Running in Act - using localstack for AWS credential validation"
+            # Start localstack if it's not already running
+            if ! docker ps | grep -q localstack; then
+              echo "Starting LocalStack..."
+              docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
+              echo "Waiting for LocalStack to be ready..."
+              sleep 10
+            fi
+            # Use localstack endpoint for get-caller-identity
+            aws --endpoint-url=http://localhost:4566 sts get-caller-identity || {
+              echo "Failed to validate AWS credentials with localstack"
+              exit 1
+            }
+          else
+            # Use real AWS for get-caller-identity
+            aws sts get-caller-identity || {
+              echo "Failed to validate AWS credentials"
+              exit 1
+            }
+          fi
 
       - name: Initialize Terraform
         working-directory: ./bootstrap/environments/aws

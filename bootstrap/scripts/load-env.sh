@@ -1,32 +1,95 @@
 #!/bin/bash
 
+SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+PROJECT_ROOT="${SCRIPT_DIR}/../.."
+
 # Function to load env file
 load_env() {
     local env_file=$1
     if [ -f "$env_file" ]; then
         echo "Loading environment from $env_file"
-        set -o allexport
+        # Use 'set -a' to export all variables defined in the file
+        set -a
         source "$env_file"
-        set +o allexport
+        set +a
     else
         echo "Warning: $env_file not found"
     fi
 }
 
-# Directory of this script
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Determine environment type (e.g., aws, localstack) and stage (e.g., dev, test, prod)
+# Default to localstack if ENV is not set or doesn't contain a known type
+ENV_TYPE="localstack" # Default
+ENV_STAGE="dev"      # Default
 
-# Load root .env first
-ROOT_ENV="${SCRIPT_DIR}/../../.env"
-load_env "$ROOT_ENV"
+if [[ -n "$ENV" ]]; then
+    if [[ "$ENV" == *"aws"* ]]; then
+        ENV_TYPE="aws"
+    elif [[ "$ENV" == *"localstack"* || "$ENV" == "dev" ]]; then # Treat 'dev' as localstack for backwards compatibility
+        ENV_TYPE="localstack"
+    elif [[ "$ENV" == "test" ]]; then
+        ENV_TYPE="test"
+    elif [[ "$ENV" == "local-test" ]]; then
+        ENV_TYPE="local-test"
+    fi
 
-# Load bootstrap environment specific .env
-BOOTSTRAP_ENV="${SCRIPT_DIR}/../.env"
+    # Extract stage if present (e.g., _dev, _prod)
+    if [[ "$ENV" == *"_"* ]]; then
+      ENV_STAGE=$(echo "$ENV" | cut -d'_' -f2)
+    elif [[ "$ENV" == "test" || "$ENV" == "local-test" ]]; then
+      ENV_STAGE="test"
+    fi
+fi
+
+echo "Determined Environment Type: $ENV_TYPE, Stage: $ENV_STAGE"
+
+# 1. Load base bootstrap config (always loaded)
+BASE_ENV="${SCRIPT_DIR}/../.env.base"
+load_env "$BASE_ENV"
+
+# 2. Load environment-specific file
+SPECIFIC_ENV_FILE=""
+case "$ENV_TYPE" in
+    aws)
+        SPECIFIC_ENV_FILE="${SCRIPT_DIR}/../environments/aws/.env.aws"
+        ;;
+    localstack)
+        SPECIFIC_ENV_FILE="${SCRIPT_DIR}/../environments/localstack/.env.local"
+        ;;
+    test)
+        SPECIFIC_ENV_FILE="${PROJECT_ROOT}/tests/.env.test"
+        ;;
+    local-test)
+        SPECIFIC_ENV_FILE="${PROJECT_ROOT}/tests/.env.local-test"
+        ;;
+    *)
+        echo "Warning: Unknown environment type '$ENV_TYPE'. Falling back to localstack."
+        SPECIFIC_ENV_FILE="${SCRIPT_DIR}/../environments/localstack/.env.local"
+        ;;
+esac
+
+if [[ -n "$SPECIFIC_ENV_FILE" ]]; then
+    load_env "$SPECIFIC_ENV_FILE"
+else
+    echo "Warning: Could not determine specific environment file for ENV='$ENV'"
+fi
+
+# 3. Load bootstrap specific (optional, overrides others)
+BOOTSTRAP_ENV="${SCRIPT_DIR}/../.env.bootstrap"
 load_env "$BOOTSTRAP_ENV"
 
-# Load bootstrap environment specific .env.bootstrap if it exists
-BOOTSTRAP_ENV_BOOTSTRAP="${SCRIPT_DIR}/../.env.bootstrap"
-load_env "$BOOTSTRAP_ENV_BOOTSTRAP"
+# 4. Load deprecated .env file at root level for backward compatibility
+ROOT_ENV="${PROJECT_ROOT}/.env"
+if [ -f "$ROOT_ENV" ]; then
+    echo "Warning: Using deprecated .env file at root level for backward compatibility"
+    load_env "$ROOT_ENV"
+fi
+
+# Export the determined environment variables for use in calling scripts/makefiles
+export ENV_TYPE
+export ENV_STAGE
+
+echo "Environment loading complete."
 
 # Process environment variables
 # Replace any ${VAR} or $VAR in the values
