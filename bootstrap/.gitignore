@@ -11,7 +11,6 @@ build/
 
 # Local development
 local-infra/
-.localstack/
 
 # Environment-specific
 .env
@@ -28,4 +27,5 @@ Thumbs.db
 
 # Environment files
 .env*
-!.env.example
+!*.example
+!.env.aws.example

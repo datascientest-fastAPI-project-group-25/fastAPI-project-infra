@@ -1,4 +1,13 @@
--P ubuntu-latest=catthehacker/ubuntu:act-latest
+# .actrc - Configuration for act (https://github.com/nektos/act)
+
+# Default flags applied to all act runs
+# Use AMD64 architecture for compatibility, especially on M1/M2 Macs
+-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest
 -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
 -P ubuntu-20.04=catthehacker/ubuntu:act-20.04
 --container-architecture linux/amd64
+
+# Specify the default secret file for act runs
+# Can be overridden using --secret-file on the command line
+# Pointing to the local test environment by default
+--secret-file tests/.env.local-test

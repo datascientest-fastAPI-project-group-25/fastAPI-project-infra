@@ -1,0 +1,115 @@
+#!/bin/bash
+# Example script demonstrating the Git workflow using the Makefile commands
+# This script is for demonstration purposes only and should not be run directly
+
+# Step 1: Create a new feature branch
+echo "Step 1: Creating a new feature branch"
+echo "$ make git_feature"
+echo "Enter feature name (without spaces, use hyphens): new-security-module"
+echo "Switched to a new branch 'feat/new-security-module'"
+
+# Step 2: Make some changes
+echo -e "\nStep 2: Make some changes to the codebase"
+echo "$ echo 'New security module code' > security_module.tf"
+
+# Step 3: Check status
+echo -e "\nStep 3: Check the status of your changes"
+echo "$ make git_status"
+echo "On branch feat/new-security-module"
+echo "Untracked files:"
+echo "  (use \"git add <file>...\" to include in what will be committed)"
+echo "        security_module.tf"
+
+# Step 4: Commit changes in logical groups
+echo -e "\nStep 4: Commit changes in logical groups"
+echo "$ make git_commit"
+echo "Committing changes in logical groups"
+echo "Available files to commit:"
+echo " ?? security_module.tf"
+echo ""
+echo "Enter files to commit (space-separated, or '.' for all): security_module.tf"
+echo "Files staged for commit:"
+echo " A  security_module.tf"
+echo "Enter commit message: Add initial security module implementation"
+echo "[feat/new-security-module 1a2b3c4] Add initial security module implementation"
+echo " 1 file changed, 1 insertion(+)"
+echo " create mode 100644 security_module.tf"
+
+# Step 5: Make more changes
+echo -e "\nStep 5: Make more changes"
+echo "$ echo 'Additional security features' >> security_module.tf"
+echo "$ echo 'Security module documentation' > security_module.md"
+
+# Step 6: Commit changes in logical groups again
+echo -e "\nStep 6: Commit changes in logical groups again"
+echo "$ make git_commit"
+echo "Committing changes in logical groups"
+echo "Available files to commit:"
+echo " M  security_module.tf"
+echo " ?? security_module.md"
+echo ""
+echo "Enter files to commit (space-separated, or '.' for all): security_module.md"
+echo "Files staged for commit:"
+echo " A  security_module.md"
+echo "Enter commit message: Add security module documentation"
+echo "[feat/new-security-module 5d6e7f8] Add security module documentation"
+echo " 1 file changed, 1 insertion(+)"
+echo " create mode 100644 security_module.md"
+
+# Step 7: Commit remaining changes
+echo -e "\nStep 7: Commit remaining changes"
+echo "$ make git_commit"
+echo "Committing changes in logical groups"
+echo "Available files to commit:"
+echo " M  security_module.tf"
+echo ""
+echo "Enter files to commit (space-separated, or '.' for all): ."
+echo "Files staged for commit:"
+echo " M  security_module.tf"
+echo "Enter commit message: Add additional security features"
+echo "[feat/new-security-module 9g0h1i2] Add additional security features"
+echo " 1 file changed, 1 insertion(+)"
+
+# Step 8: Push changes to remote
+echo -e "\nStep 8: Push changes to remote"
+echo "$ make git_push"
+echo "Enumerating objects: 7, done."
+echo "Counting objects: 100% (7/7), done."
+echo "Delta compression using up to 8 threads"
+echo "Compressing objects: 100% (4/4), done."
+echo "Writing objects: 100% (6/6), 576 bytes | 576.00 KiB/s, done."
+echo "Total 6 (delta 1), reused 0 (delta 0), pack-reused 0"
+echo "remote: Resolving deltas: 100% (1/1), done."
+echo "remote:"
+echo "remote: Create a pull request for 'feat/new-security-module' on GitHub by visiting:"
+echo "remote:      https://github.com/yourusername/fastapi-project-infra/pull/new/feat/new-security-module"
+echo "remote:"
+echo "To github.com:yourusername/fastapi-project-infra.git"
+echo " * [new branch]      feat/new-security-module -> feat/new-security-module"
+echo "Branch 'feat/new-security-module' set up to track remote branch 'feat/new-security-module' from 'origin'."
+
+# Step 9: Merge to main branch
+echo -e "\nStep 9: Merge to main branch"
+echo "$ make git_merge_main"
+echo "Merging feat/new-security-module to main branch"
+echo "Switched to branch 'main'"
+echo "Updating 1a2b3c4..9g0h1i2"
+echo "Fast-forward"
+echo " security_module.md  | 1 +"
+echo " security_module.tf  | 2 ++"
+echo " 2 files changed, 3 insertions(+)"
+echo " create mode 100644 security_module.md"
+echo " create mode 100644 security_module.tf"
+echo "Enumerating objects: 7, done."
+echo "Counting objects: 100% (7/7), done."
+echo "Delta compression using up to 8 threads"
+echo "Compressing objects: 100% (4/4), done."
+echo "Writing objects: 100% (6/6), 576 bytes | 576.00 KiB/s, done."
+echo "Total 6 (delta 1), reused 0 (delta 0), pack-reused 0"
+echo "remote: Resolving deltas: 100% (1/1), done."
+echo "To github.com:yourusername/fastapi-project-infra.git"
+echo "   1a2b3c4..9g0h1i2  main -> main"
+echo "Switched to branch 'feat/new-security-module'"
+
+echo -e "\nGit workflow example completed successfully!"
+echo "For more information, see the BRANCHING.md file."

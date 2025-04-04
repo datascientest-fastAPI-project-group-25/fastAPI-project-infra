@@ -1,0 +1,60 @@
+services:
+  # AWS environment
+  aws:
+    build:
+      context: ./environments/aws
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - ~/.aws:/root/.aws:ro
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-dummy-key}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-dummy-secret}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-000000000000}
+      - PROJECT_NAME=${PROJECT_NAME:-fastapi-project}
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+    working_dir: /app/environments/aws
+    entrypoint: ["/bin/bash"]
+    command: ["-c", "echo 'AWS environment ready. Run your commands here.'"]
+
+  # Localstack environment
+  localstack-env:
+    build:
+      context: ./environments/localstack
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-eu-west-2}
+      - AWS_ACCOUNT_ID=000000000000
+      - PROJECT_NAME=${PROJECT_NAME:-fastapi-project}
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+    working_dir: /app/environments/localstack
+    depends_on:
+      localstack:
+        condition: service_healthy
+    entrypoint: ["/bin/bash"]
+    command: ["-c", "echo 'Localstack environment ready. Run your commands here.'"]
+
+  # Localstack service
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    environment:
+      - SERVICES=s3,dynamodb
+      - DEBUG=1
+    volumes:
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  localstack-data:

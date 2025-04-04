@@ -1,8 +1,18 @@
-# Local environment files
+# .env files
 *.env
-!.env.example
-!.env.test
-.env.local-test
+!.env.*example
+!bootstrap/.env.*example
+!tests/.env.*example
+!bootstrap/environments/aws/.env.aws.example
+!bootstrap/environments/localstack/.env.local.example
+
+# Specific .env files to ignore
+bootstrap/.env.base
+bootstrap/.env.bootstrap
+bootstrap/environments/aws/.env.aws
+bootstrap/environments/localstack/.env.local
+tests/.env.test
+tests/.env.local-test
 
 # AWS CLI installation files
 awscliv2.zip
