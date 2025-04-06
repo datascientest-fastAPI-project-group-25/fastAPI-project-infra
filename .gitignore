@@ -16,7 +16,6 @@ tests/.env.local-test
 
 # AWS CLI installation files
 awscliv2.zip
-aws/
 terraform_*_linux_amd64.zip
 
 # Terraform files
