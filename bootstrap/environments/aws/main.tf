@@ -31,7 +31,7 @@ module "state" {
   source = "../../modules/state"
 
   use_localstack      = false
-  dynamodb_table_name = coalesce(var.dynamodb_table_name, "terraform-state-lock")
+  dynamodb_table_name = coalesce(var.dynamodb_table_name, "terraform-state-lock-test")
   s3_bucket_name      = local.state_bucket_name
   aws_region         = local.aws_region
   environment        = var.environment
