@@ -99,14 +99,34 @@ for var in $(env | grep -v '^_' | cut -d= -f1); do
 done
 
 # Verify required variables
+# For role-based authentication, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are optional
+# if AWS credentials are configured in ~/.aws/credentials
 required_vars=(
-    "AWS_ACCESS_KEY_ID"
-    "AWS_SECRET_ACCESS_KEY"
     "AWS_DEFAULT_REGION"
     "AWS_ACCOUNT_ID"
     "PROJECT_NAME"
     "ENVIRONMENT"
 )
+
+# Check if we're using role-based authentication
+if [ -z "$AWS_BOOTSTRAP_ROLE_NAME" ]; then
+    # If not using role-based auth, AWS credentials are required
+    required_vars+=("AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY")
+else
+    # If using role-based auth, check if AWS credentials are available
+    # either from environment variables or AWS CLI configuration
+    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+        echo "Note: AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY not set in environment."
+        echo "Checking AWS CLI configuration..."
+        if ! aws sts get-caller-identity &>/dev/null; then
+            echo "Error: No valid AWS credentials found. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY"
+            echo "or configure AWS CLI with credentials that can assume the role $AWS_BOOTSTRAP_ROLE_NAME."
+            exit 1
+        else
+            echo "AWS CLI credentials found. Will use these to assume role $AWS_BOOTSTRAP_ROLE_NAME."
+        fi
+    fi
+fi
 
 for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
