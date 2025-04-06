@@ -1,0 +1,25 @@
+# ================================
+# ArgoCD Application YAML (argocd-app.yaml)
+# ================================
+
+apiVersion: argoproj.io/v0alpha1
+kind: Application
+metadata:
+  name: fastapi-app
+  namespace: argocd
+spec:
+  destination:
+    namespace: default
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    repoURL: https://github.com/datascientest-fastAPI-project-group-26/fastAPI-project-release
+    targetRevision: main
+    path: helm
+    helm:
+      valueFiles:
+        - values.yaml
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

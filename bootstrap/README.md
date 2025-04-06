@@ -92,6 +92,39 @@ The Docker containers use environment variables for configuration. The following
 
 ### AWS Environment
 
+#### Authentication Methods
+
+The bootstrap environment supports two authentication methods for AWS:
+
+1. **Role-Based Authentication (Recommended)**
+2. **User-Based Authentication (Legacy)**
+
+#### Role-Based Authentication
+
+Role-based authentication uses AWS IAM roles to provide temporary credentials, which is more secure and easier to manage across multiple users and machines. This approach is recommended for team environments.
+
+Required environment variables:
+- `AWS_ACCOUNT_ID`: Your AWS account ID
+- `AWS_BOOTSTRAP_ROLE_NAME`: Name of the IAM role to assume (default: FastAPIProjectBootstrapInfraRole)
+- `AWS_DEFAULT_REGION`: AWS region (default: us-east-1)
+
+To use role-based authentication:
+
+1. Ensure the role exists in your AWS account with appropriate permissions
+2. Set up your AWS CLI with credentials that have permission to assume the role
+3. Set the required environment variables
+
+```bash
+export AWS_ACCOUNT_ID=your-account-id
+export AWS_BOOTSTRAP_ROLE_NAME=FastAPIProjectBootstrapInfraRole
+```
+
+The bootstrap script will automatically attempt to assume the role if `AWS_BOOTSTRAP_ROLE_NAME` is set.
+
+#### User-Based Authentication (Legacy)
+
+If you prefer to use direct AWS credentials:
+
 - `AWS_ACCESS_KEY_ID`: AWS access key ID (default: dummy-key)
 - `AWS_SECRET_ACCESS_KEY`: AWS secret access key (default: dummy-secret)
 - `AWS_DEFAULT_REGION`: AWS region (default: us-east-1)
