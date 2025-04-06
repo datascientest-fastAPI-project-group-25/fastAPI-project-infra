@@ -1,3 +1,8 @@
+# Use .ONESHELL to ensure all commands in a recipe run in the same shell
+.ONESHELL:
+SHELL := /bin/bash
+.SHELLFLAGS := -e -c
+
 # Helper functions for AWS validation
 check_defined = \
     $(strip $(foreach 1,$1, \
@@ -36,18 +41,23 @@ act-mock:
 # Load environment variables from .env files
 load-env:
 	@echo "Loading environment variables from .env files..."
-	@bash -c "source scripts/load-env.sh"
+	@bash -c 'source scripts/load-env.sh'
 
 # Environment validation for AWS operations
 validate-aws-env: load-env
-	$(call check_defined, AWS_ACCESS_KEY_ID, AWS access key)
-	$(call check_defined, AWS_SECRET_ACCESS_KEY, AWS secret key)
 	$(call check_defined, AWS_DEFAULT_REGION, AWS region)
+	@if [ -z "$$AWS_BOOTSTRAP_ROLE_NAME" ]; then \
+		echo "Using user-based authentication..."; \
+		$(call check_defined, AWS_ACCESS_KEY_ID, AWS access key) \
+		$(call check_defined, AWS_SECRET_ACCESS_KEY, AWS secret key) \
+	else \
+		echo "Using role-based authentication with role: $$AWS_BOOTSTRAP_ROLE_NAME"; \
+	fi
 
 # LocalStack targets
 .PHONY: local-init local-plan local-apply local-destroy start-localstack stop-localstack localstack-bootstrap-dryrun
 
-start-localstack:
+start-localstack: stop-localstack
 	@echo "Starting LocalStack..."
 	docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
 	@echo "Waiting for LocalStack to be ready..."
@@ -75,12 +85,17 @@ local-destroy:
 	@echo "Destroying local environment..."
 	cd environments/localstack && terraform destroy
 
-localstack-bootstrap-dryrun:
+localstack-bootstrap-dryrun: start-localstack
 	@echo "Running bootstrap dryrun in LocalStack (create, test, destroy bucket)..."
 	cd environments/localstack && ./localstack-bootstrap-dryrun.sh
 
 # AWS targets
-.PHONY: load-env aws-init aws-plan aws-apply aws-destroy aws-setup-state aws-apply-bootstrap aws-bootstrap-dryrun
+.PHONY: load-env aws-init aws-plan aws-apply aws-destroy aws-setup-state aws-apply-bootstrap aws-bootstrap-dryrun aws-bootstrap-dryrun-internal run-with-env
+
+# Run a make target with environment variables loaded
+run-with-env:
+	@echo "Running $(TARGET) with environment variables..."
+	@bash -c 'source scripts/load-env.sh && make $(TARGET)'
 
 # aws-test: validate-aws-env
 # 	@echo "Testing AWS bootstrap configuration..."
@@ -98,9 +113,12 @@ aws-apply-bootstrap: validate-aws-env
 	@echo "Applying bootstrap resources to AWS (skipping state resources)..."
 	cd environments/aws && ./apply-bootstrap.sh
 
-aws-bootstrap-dryrun:
+aws-bootstrap-dryrun-internal: validate-aws-env
 	@echo "Running bootstrap dryrun (create, test, destroy bucket in us-east-1)..."
 	cd environments/aws && ./aws-bootstrap-dryrun.sh
+
+aws-bootstrap-dryrun:
+	@$(MAKE) run-with-env TARGET=aws-bootstrap-dryrun-internal
 
 aws-init: validate-aws-env aws-prepare
 	@echo "Initializing Terraform for AWS environment..."
