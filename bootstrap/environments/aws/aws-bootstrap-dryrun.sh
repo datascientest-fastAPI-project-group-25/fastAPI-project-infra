@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Disable AWS CLI paging to prevent the script from waiting for user input
+export AWS_PAGER=""
+
 # Source environment variables
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/../../scripts/load-env.sh"
@@ -21,6 +24,8 @@ fi
 
 # Verify AWS credentials
 echo "Verifying AWS credentials..."
+echo "Authentication method: $([ -n "$AWS_BOOTSTRAP_ROLE_NAME" ] && echo "Role-based (will attempt to assume role: $AWS_BOOTSTRAP_ROLE_NAME)" || echo "User-based")"
+echo "Initial credentials:"
 aws sts get-caller-identity
 
 if [ $? -ne 0 ]; then
@@ -34,6 +39,36 @@ if [ -z "$AWS_ACCOUNT_ID" ]; then
 fi
 
 echo "Using AWS Account: $AWS_ACCOUNT_ID"
+
+# Check if we should use role-based authentication
+if [ -n "$AWS_BOOTSTRAP_ROLE_NAME" ]; then
+    echo "Attempting to assume role: $AWS_BOOTSTRAP_ROLE_NAME"
+
+    # Assume the bootstrap role
+    ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${AWS_BOOTSTRAP_ROLE_NAME}"
+    TEMP_ROLE=$(aws sts assume-role --role-arn "$ROLE_ARN" --role-session-name "BootstrapDryRun" --duration-seconds 3600)
+
+    if [ $? -eq 0 ]; then
+        # Export the temporary credentials
+        export AWS_ACCESS_KEY_ID=$(echo "$TEMP_ROLE" | jq -r '.Credentials.AccessKeyId')
+        export AWS_SECRET_ACCESS_KEY=$(echo "$TEMP_ROLE" | jq -r '.Credentials.SecretAccessKey')
+        export AWS_SESSION_TOKEN=$(echo "$TEMP_ROLE" | jq -r '.Credentials.SessionToken')
+
+        echo "Successfully assumed role: $AWS_BOOTSTRAP_ROLE_NAME"
+
+        # Verify the assumed role
+        echo "Verifying assumed role credentials..."
+        echo "Now using temporary credentials from assumed role:"
+        aws sts get-caller-identity
+
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to verify assumed role credentials"
+            exit 1
+        fi
+    else
+        echo "Warning: Failed to assume role $AWS_BOOTSTRAP_ROLE_NAME. Continuing with current credentials."
+    fi
+fi
 
 # Set region to us-east-1 for the bucket
 export AWS_DEFAULT_REGION="us-east-1"
