@@ -1,6 +1,6 @@
 server:
   service:
-    type: LoadBalancer  # Use Ingress instead for production
+    type: LoadBalancer
   ingress:
     enabled: true
 
@@ -15,9 +15,9 @@ configs:
       - url: https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release
 
   secret:
-    # Optional: Set ArgoCD admin password (hashed)
-    # Can use: htpasswd -nbBC 10 "" your-password | tr -d ':\n' | sed 's/$2y/$2a/'
-    argocdServerAdminPassword: $2a$10$7QXs6m5YOvA3R2qY7gX5TeZhE6xLM4ZTzOt1smPvFHvDOjvhnNGmG
+    # Set ArgoCD admin password (bcrypt hashed)
+    # Generated with: htpasswd -nbBC 10 "" admin | tr -d ':\n' | sed 's/$2y/$2a/'
+    argocdServerAdminPassword: $2a$10$2DqJCxwm9S7YAl9D/0AC3.TfgS1KcVKLLce3NQZHpYQXZ/LBEQfcO
 
   params:
     server.insecure: true

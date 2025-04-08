@@ -7,6 +7,21 @@ provider "aws" {
 }
 
 terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.10"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.5"
+    }
+  }
+
   backend "s3" {
     bucket         = "fastapi-project-terraform-state-575977136211"
     key            = "fastapi/infra/terraform.tfstate"
@@ -15,44 +30,73 @@ terraform {
   }
 }
 
+# Create VPC using our custom module
 module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  name    = "fastapi-vpc"
-  cidr    = "10.0.0.0/16"
-  azs     = ["us-west-2a", "us-west-2b"]
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
-  enable_nat_gateway = true
-  single_nat_gateway = true
+  source      = "./modules/vpc"
+  aws_region  = var.aws_region
+  environment = var.environment
+  project_name = "fastapi-project"
 }
 
+# Create security groups for EKS access
+module "security" {
+  source      = "./modules/security"
+  vpc_id      = module.vpc.vpc_id
+  environment = var.environment
+  project_name = "fastapi-project"
+  allowed_cidr_blocks = ["0.0.0.0/0"]  # This should be restricted in production
+
+  depends_on = [module.vpc]
+}
+
+# Create EKS cluster using our custom module
 module "eks" {
-  source          = "terraform-aws-modules/eks/aws"
-  cluster_name    = "fastapi-eks"
-  cluster_version = "1.27"
-  subnets         = module.vpc.private_subnets
-  vpc_id          = module.vpc.vpc_id
-  enable_irsa     = true
+  source       = "./modules/eks"
+  aws_region   = var.aws_region
+  environment  = var.environment
+  project_name = "fastapi-project"
+  vpc_id       = module.vpc.vpc_id
+  subnet_ids   = module.vpc.private_subnets
+  security_group_ids = [
+    module.security.public_security_group_id,
+    module.security.private_security_group_id
+  ]
 
-  eks_managed_node_groups = {
-    default = {
-      desired_capacity = 2
-      max_capacity     = 3
-      min_capacity     = 1
-      instance_types   = ["t3.medium"]
-    }
-  }
+  #Explicitly define the IAM role for the EKS cluster
+
+  depends_on = [module.vpc, module.security]
 }
 
-resource "helm_release" "argocd" {
-  name       = "argocd"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
-  namespace  = "argocd"
-  create_namespace = true
-  values     = [file("argocd-values.yaml")]
+# Configure kubectl to use the EKS cluster
+# These data sources will be available after the EKS cluster is created
+# For now, we'll comment them out and uncomment them after the EKS cluster is created
+# data "aws_eks_cluster" "cluster" {
+#   name = "fastapi-project-eks-dev"
+# }
+
+# data "aws_eks_cluster_auth" "cluster" {
+#   name = "fastapi-project-eks-dev"
+# }
+
+# These providers will be configured after the EKS cluster is created
+# For now, we'll use empty providers
+provider "kubernetes" {
+  # Configuration will be added after EKS cluster is created
 }
 
-resource "kubernetes_manifest" "argocd_app" {
-  manifest = yamldecode(file("argocd-app.yaml"))
+provider "helm" {
+  # Configuration will be added after EKS cluster is created
 }
+
+# We'll deploy ArgoCD after the EKS cluster is created
+# For now, we'll comment out the ArgoCD module
+# module "argocd" {
+#   source                              = "./modules/argo"
+#   environment                         = var.environment
+#   project_name                        = "fastapi-project"
+#   eks_cluster_endpoint                = module.eks.cluster_endpoint
+#   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
+#   eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
+#
+#   depends_on = [module.eks]
+# }
