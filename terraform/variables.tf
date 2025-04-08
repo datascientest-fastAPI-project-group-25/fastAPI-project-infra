@@ -3,21 +3,37 @@
 # ================================
 
 variable "aws_region" {
-  default = "us-west-2"
+  description = "AWS region to deploy resources"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
 }
 
 variable "github_org" {
-  default = "datascientest-fastAPI-project-group-26"
+  description = "GitHub organization name"
+  type        = string
+  default     = "datascientest-fastAPI-project-group-25"
 }
 
 variable "github_repo" {
-  default = "fastAPI-project-release"
+  description = "GitHub repository name"
+  type        = string
+  default     = "fastAPI-project-release"
 }
 
 variable "argocd_app_name" {
-  default = "fastapi-app"
+  description = "Name of the ArgoCD application"
+  type        = string
+  default     = "fastapi-app"
 }
 
 variable "argocd_app_path" {
-  default = "helm"
+  description = "Path to the application in the Git repository"
+  type        = string
+  default     = "helm"
 }
