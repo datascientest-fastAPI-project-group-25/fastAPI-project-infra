@@ -12,7 +12,25 @@ resource "helm_release" "argocd" {
   values = [
     file("${path.module}/argocd-values.yml")
   ]
+
+  # Wait for ArgoCD to be ready
+  timeout = 1800
 }
 
-# We'll deploy the ArgoCD Application manually after the cluster is up
-# This avoids the issue with the Application CRD not being ready
+# Wait for ArgoCD CRDs to be available
+resource "time_sleep" "wait_for_crds" {
+  depends_on = [helm_release.argocd]
+  create_duration = "300s"
+}
+
+# Deploy ArgoCD Application using kubectl
+resource "null_resource" "apply_argocd_app" {
+  depends_on = [
+    helm_release.argocd,
+    time_sleep.wait_for_crds
+  ]
+
+  provisioner "local-exec" {
+    command = "kubectl apply -f ${path.module}/argocd-app.yml"
+  }
+}
