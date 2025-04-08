@@ -68,35 +68,37 @@ module "eks" {
 }
 
 # Configure kubectl to use the EKS cluster
-# These data sources will be available after the EKS cluster is created
-# For now, we'll comment them out and uncomment them after the EKS cluster is created
-# data "aws_eks_cluster" "cluster" {
-#   name = "fastapi-project-eks-dev"
-# }
+data "aws_eks_cluster" "cluster" {
+  name = "fastapi-project-eks-dev"
+}
 
-# data "aws_eks_cluster_auth" "cluster" {
-#   name = "fastapi-project-eks-dev"
-# }
+data "aws_eks_cluster_auth" "cluster" {
+  name = "fastapi-project-eks-dev"
+}
 
-# These providers will be configured after the EKS cluster is created
-# For now, we'll use empty providers
+# Configure Kubernetes and Helm providers
 provider "kubernetes" {
-  # Configuration will be added after EKS cluster is created
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
 provider "helm" {
-  # Configuration will be added after EKS cluster is created
+  kubernetes {
+    host                   = data.aws_eks_cluster.cluster.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+  }
 }
 
-# We'll deploy ArgoCD after the EKS cluster is created
-# For now, we'll comment out the ArgoCD module
-# module "argocd" {
-#   source                              = "./modules/argo"
-#   environment                         = var.environment
-#   project_name                        = "fastapi-project"
-#   eks_cluster_endpoint                = module.eks.cluster_endpoint
-#   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
-#   eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
-#
-#   depends_on = [module.eks]
-# }
+# Deploy ArgoCD using our custom module
+module "argocd" {
+  source                              = "./modules/argo"
+  environment                         = var.environment
+  project_name                        = "fastapi-project"
+  eks_cluster_endpoint                = module.eks.cluster_endpoint
+  eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
+  eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
+
+  depends_on = [module.eks]
+}
