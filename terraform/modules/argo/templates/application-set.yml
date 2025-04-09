@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: fastapi-${environment}
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - environment: ${environment}
+            namespace: fastapi-helm-${environment}
+            valueFile: values.${environment}.yaml
+  template:
+    metadata:
+      name: 'fastapi-{{environment}}'
+      namespace: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/${github_org}/${release_repo}
+        targetRevision: ${target_revision}
+        path: charts/fastapi
+        helm:
+          valueFiles:
+            - '{{valueFile}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

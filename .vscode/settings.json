@@ -1,4 +1,5 @@
 {
     "makefile.configureOnOpen": true,
-    "CodeGPT.apiKey": "CodeGPT Plus Beta"
+    "CodeGPT.apiKey": "CodeGPT Plus Beta",
+    "postman.settings.dotenv-detection-notification-visibility": false
 }

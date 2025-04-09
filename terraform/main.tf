@@ -91,6 +91,18 @@ provider "helm" {
   }
 }
 
+# Deploy Kubernetes resources using our custom module
+module "k8s_resources" {
+  source          = "./modules/k8s-resources"
+  github_username = var.github_username
+  github_token    = var.github_token
+  db_username     = var.db_username
+  db_password     = var.db_password
+  db_name         = var.db_name
+
+  depends_on = [module.eks]
+}
+
 # Deploy ArgoCD using our custom module
 module "argocd" {
   source                              = "./modules/argo"
@@ -100,5 +112,5 @@ module "argocd" {
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
   eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, module.k8s_resources]
 }
