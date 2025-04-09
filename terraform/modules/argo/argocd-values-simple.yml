@@ -1,0 +1,18 @@
+server:
+  service:
+    type: LoadBalancer  
+
+configs:
+  cm:
+    application.instanceLabelKey: argocd.argoproj.io/instance
+    kustomize.buildOptions: "--enable-helm"
+    repositories: |
+      - url: https://github.com/datascientest-fastapi-project-group-25/fastAPI-project-release
+
+  params:
+    server.insecure: true
+
+rbac:
+  policy.default: role:readonly
+  policy.csv: |
+    g, system:authenticated, role:admin
