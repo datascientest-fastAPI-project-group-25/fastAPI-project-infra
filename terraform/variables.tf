@@ -14,6 +14,39 @@ variable "environment" {
   default     = "dev"
 }
 
+# GitHub Container Registry credentials
+variable "github_username" {
+  description = "GitHub username for Container Registry authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "github_token" {
+  description = "GitHub token for Container Registry authentication"
+  type        = string
+  sensitive   = true
+}
+
+# Database credentials
+variable "db_username" {
+  description = "Database username"
+  type        = string
+  default     = "postgres"
+}
+
+variable "db_password" {
+  description = "Database password"
+  type        = string
+  default     = "postgres"
+  sensitive   = true
+}
+
+variable "db_name" {
+  description = "Database name"
+  type        = string
+  default     = "postgres"
+}
+
 variable "github_org" {
   description = "GitHub organization name"
   type        = string

@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: fastapi-environments
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          # Development environment
+          - environment: development
+            namespace: fastapi-helm-dev
+            valueFile: values.yaml
+            targetRevision: development
+          # Staging environment
+          - environment: staging
+            namespace: fastapi-helm-staging
+            valueFile: staging.yaml
+            targetRevision: development
+          # Production environment
+          - environment: production
+            namespace: fastapi-helm-prod
+            valueFile: production.yaml
+            targetRevision: main
+  template:
+    metadata:
+      name: 'fastapi-{{environment}}'
+      namespace: argocd
+      labels:
+        environment: '{{environment}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/datascientest-fastapi-project-group-25/fastAPI-project-release
+        targetRevision: '{{targetRevision}}'
+        path: charts/fastapi
+        helm:
+          valueFiles:
+            - '{{valueFile}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

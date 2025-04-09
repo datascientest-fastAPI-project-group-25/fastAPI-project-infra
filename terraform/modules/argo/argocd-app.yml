@@ -9,13 +9,13 @@ metadata:
   namespace: argocd
 spec:
   destination:
-    namespace: default
+    namespace: fastapi-helm
     server: https://kubernetes.default.svc
   project: default
   source:
     repoURL: https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release
     targetRevision: main
-    path: helm
+    path: charts/fastapi
     helm:
       valueFiles:
         - values.yaml

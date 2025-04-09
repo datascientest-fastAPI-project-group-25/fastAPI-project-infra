@@ -34,3 +34,29 @@ resource "null_resource" "apply_argocd_app" {
     command = "kubectl apply -f ${path.module}/argocd-app.yml"
   }
 }
+
+# Create namespaces for each environment
+resource "kubernetes_namespace" "environments" {
+  for_each = toset(["dev", "staging", "prod"])
+
+  metadata {
+    name = "fastapi-helm-${each.key}"
+  }
+
+  depends_on = [helm_release.argocd]
+}
+
+# Deploy ArgoCD ApplicationSet for multi-environment support
+resource "null_resource" "apply_application_set" {
+  depends_on = [
+    helm_release.argocd,
+    time_sleep.wait_for_crds,
+    null_resource.apply_argocd_app,
+    kubernetes_namespace.environments
+  ]
+
+  # Apply the ApplicationSet with explicit environment definitions
+  provisioner "local-exec" {
+    command = "kubectl apply -f ${path.module}/templates/application-set-environments.yml"
+  }
+}

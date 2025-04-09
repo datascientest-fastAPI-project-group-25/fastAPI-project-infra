@@ -15,9 +15,9 @@ module "eks" {
   enable_irsa     = true
 
   # Configure cluster access
-  cluster_endpoint_private_access = true
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
+  cluster_endpoint_private_access = true # Set to true for private cluster
+  cluster_endpoint_public_access  = true # Set to true for public cluster
+  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # Set to your desired CIDR blocks
 
   # Security groups
   create_cluster_security_group = true
