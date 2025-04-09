@@ -12,16 +12,19 @@ spec:
             namespace: fastapi-helm-dev
             valueFile: values.yaml
             targetRevision: development
+            cluster: https://kubernetes.default.svc
           # Staging environment
           - environment: staging
             namespace: fastapi-helm-staging
             valueFile: staging.yaml
             targetRevision: development
+            cluster: https://kubernetes.default.svc
           # Production environment
           - environment: production
             namespace: fastapi-helm-prod
             valueFile: production.yaml
             targetRevision: main
+            cluster: https://kubernetes.default.svc
   template:
     metadata:
       name: 'fastapi-{{environment}}'
@@ -38,7 +41,7 @@ spec:
           valueFiles:
             - '{{valueFile}}'
       destination:
-        server: https://kubernetes.default.svc
+        server: '{{cluster}}'
         namespace: '{{namespace}}'
       syncPolicy:
         automated:

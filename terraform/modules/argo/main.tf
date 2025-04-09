@@ -10,7 +10,10 @@ resource "helm_release" "argocd" {
   version          = "5.46.7"  # Specify a version for stability
 
   values = [
-    file("${path.module}/argocd-values.yml")
+    templatefile("${path.module}/argocd-values.yml", {
+      environment = var.environment
+      project_name = var.project_name
+    })
   ]
 
   # Wait for ArgoCD to be ready
@@ -59,4 +62,13 @@ resource "null_resource" "apply_application_set" {
   provisioner "local-exec" {
     command = "kubectl apply -f ${path.module}/templates/application-set-environments.yml"
   }
+}
+
+# Make the register-cluster.sh script executable
+resource "null_resource" "make_script_executable" {
+  provisioner "local-exec" {
+    command = "chmod +x ${path.module}/register-cluster.sh"
+  }
+
+  depends_on = [helm_release.argocd]
 }
