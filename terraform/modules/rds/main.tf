@@ -28,18 +28,18 @@ resource "aws_secretsmanager_secret_version" "postgres_credentials" {
 }
 
 resource "aws_db_instance" "postgres" {
-  identifier             = "fastapi-${var.environment}"
-  engine                 = "postgres"
-  engine_version         = "14.7"
-  instance_class         = var.instance_class
-  allocated_storage      = var.allocated_storage
-  storage_type           = "gp3"
-  db_name                = var.db_name
-  username               = var.db_username
-  password               = random_password.postgres.result
-  parameter_group_name   = "default.postgres14"
-  skip_final_snapshot    = var.environment != "production"
-  deletion_protection    = var.environment == "production"
+  identifier              = "fastapi-${var.environment}"
+  engine                  = "postgres"
+  engine_version          = "14.7"
+  instance_class          = var.instance_class
+  allocated_storage       = var.allocated_storage
+  storage_type            = "gp3"
+  db_name                 = var.db_name
+  username                = var.db_username
+  password                = random_password.postgres.result
+  parameter_group_name    = "default.postgres14"
+  skip_final_snapshot     = var.environment != "production"
+  deletion_protection     = var.environment == "production"
   backup_retention_period = var.environment == "production" ? 7 : 1
   backup_window           = "03:00-04:00"
   maintenance_window      = "Sun:04:00-Sun:05:00"

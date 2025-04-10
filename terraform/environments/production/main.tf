@@ -1,9 +1,5 @@
 # Production Environment Configuration
 
-provider "aws" {
-  region = var.aws_region
-}
-
 terraform {
   required_providers {
     aws = {
@@ -25,6 +21,33 @@ terraform {
     key            = "fastapi/infra/production/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-state-lock-test"
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# Configure providers that will be initialized after resources are created
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+  }
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+    }
   }
 }
 
@@ -61,58 +84,34 @@ module "eks" {
     module.security.private_security_group_id
   ]
   cluster_version = var.eks_cluster_version
-  instance_types = var.eks_node_group_instance_types
-  desired_size = var.eks_node_group_desired_size
-  min_size = var.eks_node_group_min_size
-  max_size = var.eks_node_group_max_size
+  instance_types  = var.eks_node_group_instance_types
+  desired_size    = var.eks_node_group_desired_size
+  min_size        = var.eks_node_group_min_size
+  max_size        = var.eks_node_group_max_size
 
   depends_on = [module.vpc, module.security]
 }
 
 # Create RDS instance for production
 module "rds" {
-  source                = "../../modules/rds"
-  project_name          = var.project_name
-  environment           = "production"
-  vpc_id                = module.vpc.vpc_id
-  db_subnet_group_name  = module.vpc.db_subnet_group_name
+  source                 = "../../modules/rds"
+  project_name           = var.project_name
+  environment            = "production"
+  vpc_id                 = module.vpc.vpc_id
+  db_subnet_group_name   = module.vpc.db_subnet_group_name
   eks_security_group_ids = [module.security.private_security_group_id]
-  rds_security_group_id = module.security.rds_security_group_id
-  db_username           = var.db_username
-  db_password           = var.db_password
-  db_name               = var.db_name
-  instance_class        = var.rds_instance_class
-  allocated_storage     = var.rds_allocated_storage
-  max_allocated_storage = var.rds_max_allocated_storage
+  rds_security_group_id  = module.security.rds_security_group_id
+  db_username            = var.db_username
+  db_password            = var.db_password
+  db_name                = var.db_name
+  instance_class         = var.rds_instance_class
+  allocated_storage      = var.rds_allocated_storage
+  max_allocated_storage  = var.rds_max_allocated_storage
 
   depends_on = [module.vpc, module.security]
 }
 
-# Configure kubectl to use the EKS cluster
-data "aws_eks_cluster" "cluster" {
-  name = "${var.project_name}-eks-production"
-  depends_on = [module.eks]
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = "${var.project_name}-eks-production"
-  depends_on = [module.eks]
-}
-
-# Configure Kubernetes and Helm providers
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = data.aws_eks_cluster.cluster.endpoint
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-    token                  = data.aws_eks_cluster_auth.cluster.token
-  }
-}
+# Kubernetes providers are configured at the top of the file
 
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
@@ -132,14 +131,14 @@ module "k8s_resources" {
 
 # Deploy ArgoCD using our custom module
 module "argocd" {
-  source                              = "../../modules/argo"
-  environment                         = "production"
-  project_name                        = var.project_name
-  eks_cluster_endpoint                = module.eks.cluster_endpoint
+  source                                 = "../../modules/argo"
+  environment                            = "production"
+  project_name                           = var.project_name
+  eks_cluster_endpoint                   = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
-  eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
-  github_org                          = var.github_org
-  release_repo                        = var.release_repo
+  eks_auth_token                         = ""
+  github_org                             = var.github_org
+  release_repo                           = var.release_repo
 
   depends_on = [module.eks, module.k8s_resources]
 }

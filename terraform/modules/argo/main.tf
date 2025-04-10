@@ -7,11 +7,11 @@ resource "helm_release" "argocd" {
   chart            = "argo-cd"
   namespace        = "argocd"
   create_namespace = true
-  version          = "5.46.7"  # Specify a version for stability
+  version          = "5.46.7" # Specify a version for stability
 
   values = [
     templatefile("${path.module}/argocd-values.yml", {
-      environment = var.environment
+      environment  = var.environment
       project_name = var.project_name
     })
   ]
@@ -22,7 +22,7 @@ resource "helm_release" "argocd" {
 
 # Wait for ArgoCD CRDs to be available
 resource "time_sleep" "wait_for_crds" {
-  depends_on = [helm_release.argocd]
+  depends_on      = [helm_release.argocd]
   create_duration = "300s"
 }
 
