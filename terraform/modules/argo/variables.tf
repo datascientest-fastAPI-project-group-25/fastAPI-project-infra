@@ -19,8 +19,9 @@ variable "eks_cluster_certificate_authority_data" {
 }
 
 variable "eks_auth_token" {
-  description = "EKS auth token"
+  description = "EKS auth token (optional when using exec-based auth)"
   type        = string
+  default     = ""
 }
 
 variable "argocd_admin_password" {
