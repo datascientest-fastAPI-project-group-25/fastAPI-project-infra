@@ -34,7 +34,7 @@ module "vpc" {
   aws_region   = var.aws_region
   environment  = "production"
   project_name = var.project_name
-  cidr_block   = var.vpc_cidr
+  vpc_cidr     = var.vpc_cidr
 }
 
 # Create security groups for EKS access
@@ -61,10 +61,10 @@ module "eks" {
     module.security.private_security_group_id
   ]
   cluster_version = var.eks_cluster_version
-  node_group_instance_types = var.eks_node_group_instance_types
-  node_group_desired_size = var.eks_node_group_desired_size
-  node_group_min_size = var.eks_node_group_min_size
-  node_group_max_size = var.eks_node_group_max_size
+  instance_types = var.eks_node_group_instance_types
+  desired_size = var.eks_node_group_desired_size
+  min_size = var.eks_node_group_min_size
+  max_size = var.eks_node_group_max_size
 
   depends_on = [module.vpc, module.security]
 }
@@ -75,8 +75,9 @@ module "rds" {
   project_name          = var.project_name
   environment           = "production"
   vpc_id                = module.vpc.vpc_id
-  subnet_ids            = module.vpc.private_subnets
+  db_subnet_group_name  = module.vpc.db_subnet_group_name
   eks_security_group_ids = [module.security.private_security_group_id]
+  rds_security_group_id = module.security.rds_security_group_id
   db_username           = var.db_username
   db_password           = var.db_password
   db_name               = var.db_name

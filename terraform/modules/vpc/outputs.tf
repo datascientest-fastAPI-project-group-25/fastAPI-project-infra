@@ -23,3 +23,13 @@ output "azs" {
   description = "A list of availability zones specified as arguments to this module"
   value       = module.vpc.azs
 }
+
+output "db_subnet_group_name" {
+  description = "Name of the database subnet group"
+  value       = aws_db_subnet_group.database.name
+}
+
+output "db_subnet_group_id" {
+  description = "ID of the database subnet group"
+  value       = aws_db_subnet_group.database.id
+}
