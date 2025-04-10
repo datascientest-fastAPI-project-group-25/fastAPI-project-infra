@@ -1,31 +1,13 @@
 # Development Environment Configuration
 
 terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.10"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.5"
-    }
-  }
-
+  # Backend configuration for state management
   backend "s3" {
     bucket         = "fastapi-project-terraform-state-575977136211"
     key            = "fastapi/infra/development/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-state-lock-test"
   }
-}
-
-provider "aws" {
-  region = var.aws_region
 }
 
 # Configure providers that will be initialized after resources are created
