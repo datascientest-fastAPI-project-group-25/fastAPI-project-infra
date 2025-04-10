@@ -2,10 +2,7 @@
 # Root main.tf for Infra Repo
 # ================================
 
-provider "aws" {
-  region = var.aws_region
-}
-
+# Define the required provider versions
 terraform {
   required_providers {
     aws = {
@@ -20,8 +17,21 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.5"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0.0"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = ">= 0.9.0"
+    }
   }
 
+  # Backend configuration for state management
   backend "s3" {
     bucket         = "fastapi-project-terraform-state-575977136211"
     key            = "fastapi/infra/terraform.tfstate"
@@ -29,6 +39,13 @@ terraform {
     dynamodb_table = "terraform-state-lock-test"
   }
 }
+
+# AWS provider configuration
+provider "aws" {
+  region = var.aws_region
+}
+
+
 
 # Create VPC using our custom module
 module "vpc" {
@@ -94,6 +111,7 @@ provider "helm" {
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "./modules/k8s-resources"
+  environment     = var.environment
   github_username = var.github_username
   github_token    = var.github_token
   db_username     = var.db_username
