@@ -1,9 +1,5 @@
 # Staging Environment Configuration
 
-provider "aws" {
-  region = var.aws_region
-}
-
 terraform {
   required_providers {
     aws = {
@@ -28,13 +24,40 @@ terraform {
   }
 }
 
+provider "aws" {
+  region = var.aws_region
+}
+
+# Configure providers that will be initialized after resources are created
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+  }
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+    }
+  }
+}
+
 # Create VPC using our custom module
 module "vpc" {
   source       = "../../modules/vpc"
   aws_region   = var.aws_region
   environment  = "staging"
   project_name = var.project_name
-  cidr_block   = var.vpc_cidr
+  vpc_cidr     = var.vpc_cidr
 }
 
 # Create security groups for EKS access
@@ -61,39 +84,15 @@ module "eks" {
     module.security.private_security_group_id
   ]
   cluster_version = var.eks_cluster_version
-  node_group_instance_types = var.eks_node_group_instance_types
-  node_group_desired_size = var.eks_node_group_desired_size
-  node_group_min_size = var.eks_node_group_min_size
-  node_group_max_size = var.eks_node_group_max_size
+  instance_types  = var.eks_node_group_instance_types
+  desired_size    = var.eks_node_group_desired_size
+  min_size        = var.eks_node_group_min_size
+  max_size        = var.eks_node_group_max_size
 
   depends_on = [module.vpc, module.security]
 }
 
-# Configure kubectl to use the EKS cluster
-data "aws_eks_cluster" "cluster" {
-  name = "${var.project_name}-eks-staging"
-  depends_on = [module.eks]
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = "${var.project_name}-eks-staging"
-  depends_on = [module.eks]
-}
-
-# Configure Kubernetes and Helm providers
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = data.aws_eks_cluster.cluster.endpoint
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-    token                  = data.aws_eks_cluster_auth.cluster.token
-  }
-}
+# Kubernetes providers are configured at the top of the file
 
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
@@ -110,14 +109,14 @@ module "k8s_resources" {
 
 # Deploy ArgoCD using our custom module
 module "argocd" {
-  source                              = "../../modules/argo"
-  environment                         = "staging"
-  project_name                        = var.project_name
-  eks_cluster_endpoint                = module.eks.cluster_endpoint
+  source                                 = "../../modules/argo"
+  environment                            = "staging"
+  project_name                           = var.project_name
+  eks_cluster_endpoint                   = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
-  eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
-  github_org                          = var.github_org
-  release_repo                        = var.release_repo
+  eks_auth_token                         = ""
+  github_org                             = var.github_org
+  release_repo                           = var.release_repo
 
   depends_on = [module.eks, module.k8s_resources]
 }
