@@ -2,7 +2,6 @@ variable "project_name" {
   description = "Name of the project"
   type        = string
 }
-
 variable "environment" {
   description = "Environment (development, staging, production)"
   type        = string
@@ -13,9 +12,9 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs for the DB subnet group"
-  type        = list(string)
+variable "db_subnet_group_name" {
+  description = "Name of the DB subnet group"
+  type        = string
 }
 
 variable "eks_security_group_ids" {
@@ -64,4 +63,15 @@ variable "max_allocated_storage" {
   description = "Maximum allocated storage in GB for autoscaling"
   type        = number
   default     = 100
+}
+
+variable "backup_retention_period" {
+  description = "Number of days to retain backups"
+  type        = number
+  default     = 7
+}
+
+variable "rds_security_group_id" {
+  description = "Security group ID for the database"
+  type        = string
 }
