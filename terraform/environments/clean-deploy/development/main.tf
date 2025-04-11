@@ -1,20 +1,10 @@
 # Development Environment Configuration
 
-terraform {
-  # Using local backend for development
-  backend "local" {}
-}
-
-# AWS provider configuration
-provider "aws" {
-  region = var.aws_region
-}
-
 # Create VPC using our custom module
 module "vpc" {
   source       = "../../../modules/vpc"
   aws_region   = var.aws_region
-  environment  = "development"
+  environment  = "dev2"
   project_name = var.project_name
   vpc_cidr     = var.vpc_cidr
 }
@@ -23,7 +13,7 @@ module "vpc" {
 module "security" {
   source              = "../../../modules/security"
   vpc_id              = module.vpc.vpc_id
-  environment         = "development"
+  environment         = "dev2"
   project_name        = var.project_name
   allowed_cidr_blocks = var.allowed_cidr_blocks
 
@@ -49,30 +39,6 @@ module "eks" {
   max_size        = var.eks_node_group_max_size
 
   depends_on = [module.vpc, module.security]
-}
-
-# Configure Kubernetes provider with EKS cluster details
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
-  }
-}
-
-# Configure Helm provider with EKS cluster details
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
-    }
-  }
 }
 
 # Deploy Kubernetes resources using our custom module
@@ -119,11 +85,11 @@ module "external_secrets" {
 # Configure GitHub Container Registry Access with OIDC
 module "ghcr_access" {
   source          = "../../../modules/ghcr-access"
+  environment     = "dev2"
+  github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token  # Kept as fallback
   eks_role_arn    = module.eks.worker_iam_role_arn  # Kept as fallback
-  environment     = "dev2"
-  github_org      = var.github_org
 
   depends_on = [module.eks, module.k8s_resources]
 }
