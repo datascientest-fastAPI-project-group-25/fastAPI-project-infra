@@ -19,3 +19,9 @@ variable "vpc_cidr" {
   type        = string
   default     = "10.0.0.0/16"
 }
+
+variable "create_db_subnet_group" {
+  description = "Whether to create a DB subnet group"
+  type        = bool
+  default     = true
+}

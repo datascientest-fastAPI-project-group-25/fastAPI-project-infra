@@ -6,7 +6,7 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment (e.g., development, staging, production)"
+  description = "Environment name (development, staging, production)"
   type        = string
 }
 
@@ -16,7 +16,7 @@ variable "region" {
 }
 
 variable "eks_oidc_provider" {
-  description = "EKS OIDC provider URL without the https:// prefix"
+  description = "EKS OIDC provider URL without https:// prefix"
   type        = string
 }
 
