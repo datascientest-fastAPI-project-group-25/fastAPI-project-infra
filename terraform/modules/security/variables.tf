@@ -20,9 +20,3 @@ variable "allowed_cidr_blocks" {
   type        = list(string)
   default     = ["0.0.0.0/0"] # This should be restricted in production
 }
-
-variable "create_rds_sg" {
-  description = "Whether to create the RDS security group"
-  type        = bool
-  default     = false
-}

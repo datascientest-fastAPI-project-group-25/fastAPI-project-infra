@@ -64,36 +64,4 @@ resource "aws_security_group" "eks_private" {
   }
 }
 
-# Create a security group for RDS access
-resource "aws_security_group" "rds" {
-  count       = var.create_rds_sg ? 1 : 0
-  name        = "${var.project_name}-rds-${var.environment}"
-  description = "Security group for RDS access"
-  vpc_id      = var.vpc_id
-
-  # Allow PostgreSQL traffic from the EKS private security group
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.eks_private.id]
-    description     = "Allow PostgreSQL traffic from EKS"
-  }
-
-  # Allow all outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-rds-${var.environment}"
-    Environment = var.environment
-    Project     = var.project_name
-    Terraform   = "true"
-  }
-}
 

@@ -7,13 +7,10 @@ resource "helm_release" "argocd" {
   chart            = "argo-cd"
   namespace        = "argocd"
   create_namespace = true
-  version          = "5.46.7" # Specify a version for stability
+  version          = "5.46.7"  # Specify a version for stability
 
   values = [
-    templatefile("${path.module}/argocd-values.yml", {
-      environment  = var.environment
-      project_name = var.project_name
-    })
+    file("${path.module}/argocd-values.yml")
   ]
 
   # Wait for ArgoCD to be ready
@@ -22,7 +19,7 @@ resource "helm_release" "argocd" {
 
 # Wait for ArgoCD CRDs to be available
 resource "time_sleep" "wait_for_crds" {
-  depends_on      = [helm_release.argocd]
+  depends_on = [helm_release.argocd]
   create_duration = "300s"
 }
 
@@ -36,39 +33,4 @@ resource "null_resource" "apply_argocd_app" {
   provisioner "local-exec" {
     command = "kubectl apply -f ${path.module}/argocd-app.yml"
   }
-}
-
-# Create namespaces for each environment
-resource "kubernetes_namespace" "environments" {
-  for_each = toset(["dev", "staging", "prod"])
-
-  metadata {
-    name = "fastapi-helm-${each.key}"
-  }
-
-  depends_on = [helm_release.argocd]
-}
-
-# Deploy ArgoCD ApplicationSet for multi-environment support
-resource "null_resource" "apply_application_set" {
-  depends_on = [
-    helm_release.argocd,
-    time_sleep.wait_for_crds,
-    null_resource.apply_argocd_app,
-    kubernetes_namespace.environments
-  ]
-
-  # Apply the ApplicationSet with explicit environment definitions
-  provisioner "local-exec" {
-    command = "kubectl apply -f ${path.module}/templates/application-set-environments.yml"
-  }
-}
-
-# Make the register-cluster.sh script executable
-resource "null_resource" "make_script_executable" {
-  provisioner "local-exec" {
-    command = "chmod +x ${path.module}/register-cluster.sh"
-  }
-
-  depends_on = [helm_release.argocd]
 }

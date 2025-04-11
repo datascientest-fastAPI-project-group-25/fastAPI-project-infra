@@ -13,7 +13,7 @@ variable "project_name" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
-  default     = "10.2.0.0/16" # Different CIDR for production
+  default     = "10.0.0.0/16" # Different CIDR for development
 }
 
 variable "allowed_cidr_blocks" {
@@ -31,25 +31,25 @@ variable "eks_cluster_version" {
 variable "eks_node_group_instance_types" {
   description = "Instance types for the EKS node group"
   type        = list(string)
-  default     = ["t3.large"] # Larger instances for production
+  default     = ["t3.small"] # Smaller instances for development
 }
 
 variable "eks_node_group_desired_size" {
   description = "Desired size of the EKS node group"
   type        = number
-  default     = 3 # More nodes for production
+  default     = 2
 }
 
 variable "eks_node_group_min_size" {
   description = "Minimum size of the EKS node group"
   type        = number
-  default     = 2 # Higher minimum for production
+  default     = 1
 }
 
 variable "eks_node_group_max_size" {
   description = "Maximum size of the EKS node group"
   type        = number
-  default     = 5 # Higher maximum for production
+  default     = 3
 }
 
 variable "github_username" {
@@ -79,24 +79,6 @@ variable "db_name" {
   description = "Database name"
   type        = string
   default     = "postgres"
-}
-
-variable "rds_instance_class" {
-  description = "Instance class for the RDS instance"
-  type        = string
-  default     = "db.t3.small" # Can be increased for production
-}
-
-variable "rds_allocated_storage" {
-  description = "Allocated storage in GB for RDS"
-  type        = number
-  default     = 20
-}
-
-variable "rds_max_allocated_storage" {
-  description = "Maximum allocated storage in GB for RDS autoscaling"
-  type        = number
-  default     = 100
 }
 
 variable "github_org" {

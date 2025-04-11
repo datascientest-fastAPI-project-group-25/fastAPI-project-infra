@@ -1,41 +1,18 @@
 # Production Environment Configuration
 
 terraform {
-  # Backend configuration for state management
-  backend "s3" {
-    bucket         = "fastapi-project-terraform-state-575977136211"
-    key            = "fastapi/infra/production/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-state-lock-test"
-  }
+  # Using local backend for production
+  backend "local" {}
 }
 
-# Configure providers that will be initialized after resources are created
-provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
-  }
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
-    }
-  }
+# AWS provider configuration
+provider "aws" {
+  region = var.aws_region
 }
 
 # Create VPC using our custom module
 module "vpc" {
-  source       = "../../modules/vpc"
+  source       = "../../../modules/vpc"
   aws_region   = var.aws_region
   environment  = "production"
   project_name = var.project_name
@@ -44,7 +21,7 @@ module "vpc" {
 
 # Create security groups for EKS access
 module "security" {
-  source              = "../../modules/security"
+  source              = "../../../modules/security"
   vpc_id              = module.vpc.vpc_id
   environment         = "production"
   project_name        = var.project_name
@@ -55,7 +32,7 @@ module "security" {
 
 # Create EKS cluster using our custom module
 module "eks" {
-  source       = "../../modules/eks"
+  source       = "../../../modules/eks"
   aws_region   = var.aws_region
   environment  = "production"
   project_name = var.project_name
@@ -76,7 +53,7 @@ module "eks" {
 
 # Create RDS instance for production
 module "rds" {
-  source                 = "../../modules/rds"
+  source                 = "../../../modules/rds"
   project_name           = var.project_name
   environment            = "production"
   vpc_id                 = module.vpc.vpc_id
@@ -89,21 +66,45 @@ module "rds" {
   instance_class         = var.rds_instance_class
   allocated_storage      = var.rds_allocated_storage
   max_allocated_storage  = var.rds_max_allocated_storage
+  multi_az               = true # Enable high availability for production
 
   depends_on = [module.vpc, module.security]
 }
 
-# Kubernetes providers are configured at the top of the file
+# Configure Kubernetes provider with EKS cluster details
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+  }
+}
+
+# Configure Helm provider with EKS cluster details
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+    }
+  }
+}
 
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
-  source          = "../../modules/k8s-resources"
+  source          = "../../../modules/k8s-resources"
   environment     = "production"
   github_username = var.github_username
   github_token    = var.github_token
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
+  # Using external RDS for production
   use_external_db = true
   db_host         = module.rds.db_instance_address
   db_port         = module.rds.db_instance_port
@@ -113,7 +114,7 @@ module "k8s_resources" {
 
 # Deploy ArgoCD using our custom module
 module "argocd" {
-  source                                 = "../../modules/argo"
+  source                                 = "../../../modules/argo"
   environment                            = "production"
   project_name                           = var.project_name
   eks_cluster_endpoint                   = module.eks.cluster_endpoint
@@ -127,7 +128,7 @@ module "argocd" {
 
 # Deploy External Secrets Operator
 module "external_secrets" {
-  source               = "../../modules/external-secrets"
+  source               = "../../../modules/external-secrets"
   project_name         = var.project_name
   environment          = "production"
   region               = var.aws_region
@@ -139,7 +140,7 @@ module "external_secrets" {
 
 # Configure GitHub Container Registry Access
 module "ghcr_access" {
-  source          = "../../modules/ghcr-access"
+  source          = "../../../modules/ghcr-access"
   github_username = var.github_username
   github_token    = var.github_token
   eks_role_arn    = module.eks.worker_iam_role_arn
