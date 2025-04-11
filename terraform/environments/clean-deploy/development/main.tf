@@ -34,7 +34,7 @@ module "security" {
 module "eks" {
   source       = "../../../modules/eks"
   aws_region   = var.aws_region
-  environment  = "development"
+  environment  = "development-new"
   project_name = var.project_name
   vpc_id       = module.vpc.vpc_id
   subnet_ids   = module.vpc.private_subnets
@@ -78,7 +78,7 @@ provider "helm" {
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
-  environment     = "development"
+  environment     = "development-new"
   github_username = var.github_username
   github_token    = var.github_token
   db_username     = var.db_username
@@ -93,7 +93,7 @@ module "k8s_resources" {
 # Deploy ArgoCD using our custom module
 module "argocd" {
   source                                 = "../../../modules/argo"
-  environment                            = "development"
+  environment                            = "development-new"
   project_name                           = var.project_name
   eks_cluster_endpoint                   = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
@@ -108,7 +108,7 @@ module "argocd" {
 module "external_secrets" {
   source               = "../../../modules/external-secrets"
   project_name         = var.project_name
-  environment          = "development"
+  environment          = "development-new"
   region               = var.aws_region
   eks_oidc_provider    = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
@@ -122,7 +122,7 @@ module "ghcr_access" {
   github_username = var.github_username
   github_token    = var.github_token  # Kept as fallback
   eks_role_arn    = module.eks.worker_iam_role_arn  # Kept as fallback
-  environment     = "development"
+  environment     = "development-new"
   github_org      = var.github_org
 
   depends_on = [module.eks, module.k8s_resources]
