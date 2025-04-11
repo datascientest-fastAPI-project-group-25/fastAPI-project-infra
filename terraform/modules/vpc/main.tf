@@ -36,12 +36,12 @@ module "vpc" {
 
 # Create DB subnet group for RDS instances
 resource "aws_db_subnet_group" "database" {
-  name        = "${var.project_name}-db-subnet-group-${var.environment}"
+  name        = "${var.project_name}-db-subnet-group-${var.environment}-new"
   description = "Database subnet group for ${var.project_name} ${var.environment}"
   subnet_ids  = module.vpc.private_subnets
 
   tags = {
-    Name        = "${var.project_name}-db-subnet-group-${var.environment}"
+    Name        = "${var.project_name}-db-subnet-group-${var.environment}-new"
     Environment = var.environment
     Project     = var.project_name
     Terraform   = "true"
