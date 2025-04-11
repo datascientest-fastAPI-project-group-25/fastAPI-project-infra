@@ -25,12 +25,12 @@ module "vpc" {
   }
   # Add specific tags to subnets for EKS
   private_subnet_tags = {
-    "kubernetes.io/role/internal-elb"                                  = "1"
-    "kubernetes.io/cluster/${var.project_name}-eks-${var.environment}" = "shared"
+    "kubernetes.io/role/internal-elb"                            = "1"
+    "kubernetes.io/cluster/${var.project_name}-${var.environment}" = "shared"
   }
   public_subnet_tags = {
-    "kubernetes.io/role/elb"                                           = "1"
-    "kubernetes.io/cluster/${var.project_name}-eks-${var.environment}" = "shared"
+    "kubernetes.io/role/elb"                                     = "1"
+    "kubernetes.io/cluster/${var.project_name}-${var.environment}" = "shared"
   }
 }
 
