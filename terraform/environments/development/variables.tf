@@ -19,7 +19,7 @@ variable "vpc_cidr" {
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks allowed to access the EKS cluster"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # This should be restricted in production
+  default     = ["0.0.0.0/0"] # This should be restricted in production
 }
 
 variable "eks_cluster_version" {

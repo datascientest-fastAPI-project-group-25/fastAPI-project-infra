@@ -41,13 +41,13 @@ resource "kubernetes_secret" "db_secret" {
   }
 
   data = {
-    username = var.db_username
-    password = var.db_password
-    database = var.db_name
-    host     = var.use_external_db ? var.db_host : "postgres"
-    port     = tostring(var.use_external_db ? var.db_port : 5432)
+    username        = var.db_username
+    password        = var.db_password
+    database        = var.db_name
+    host            = var.use_external_db ? var.db_host : "postgres"
+    port            = tostring(var.use_external_db ? var.db_port : 5432)
     use_external_db = tostring(var.use_external_db)
-    port     = tostring(var.use_external_db ? var.db_port : 5432)
-    use_external_db = tostring(var.use_external_db)
+    #port     = tostring(var.use_external_db ? var.db_port : 5432)
+    #use_external_db = tostring(var.use_external_db)
   }
 }

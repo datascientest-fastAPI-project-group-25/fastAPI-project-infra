@@ -18,5 +18,5 @@ variable "project_name" {
 variable "allowed_cidr_blocks" {
   description = "List of CIDR blocks allowed to access the EKS cluster"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # This should be restricted in production
+  default     = ["0.0.0.0/0"] # This should be restricted in production
 }

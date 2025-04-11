@@ -13,13 +13,13 @@ variable "project_name" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
-  default     = "10.2.0.0/16"  # Different CIDR for production
+  default     = "10.2.0.0/16" # Different CIDR for production
 }
 
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks allowed to access the EKS cluster"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # This should be restricted in production
+  default     = ["0.0.0.0/0"] # This should be restricted in production
 }
 
 variable "eks_cluster_version" {
@@ -31,25 +31,25 @@ variable "eks_cluster_version" {
 variable "eks_node_group_instance_types" {
   description = "Instance types for the EKS node group"
   type        = list(string)
-  default     = ["t3.large"]  # Larger instances for production
+  default     = ["t3.large"] # Larger instances for production
 }
 
 variable "eks_node_group_desired_size" {
   description = "Desired size of the EKS node group"
   type        = number
-  default     = 3  # More nodes for production
+  default     = 3 # More nodes for production
 }
 
 variable "eks_node_group_min_size" {
   description = "Minimum size of the EKS node group"
   type        = number
-  default     = 2  # Higher minimum for production
+  default     = 2 # Higher minimum for production
 }
 
 variable "eks_node_group_max_size" {
   description = "Maximum size of the EKS node group"
   type        = number
-  default     = 5  # Higher maximum for production
+  default     = 5 # Higher maximum for production
 }
 
 variable "github_username" {
@@ -84,7 +84,7 @@ variable "db_name" {
 variable "rds_instance_class" {
   description = "Instance class for the RDS instance"
   type        = string
-  default     = "db.t3.small"  # Can be increased for production
+  default     = "db.t3.small" # Can be increased for production
 }
 
 variable "rds_allocated_storage" {
