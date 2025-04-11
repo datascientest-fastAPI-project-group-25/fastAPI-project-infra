@@ -13,13 +13,13 @@ variable "project_name" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
-  default     = "10.1.0.0/16"  # Different CIDR for staging
+  default     = "10.1.0.0/16" # Different CIDR for staging
 }
 
 variable "allowed_cidr_blocks" {
   description = "CIDR blocks allowed to access the EKS cluster"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # This should be restricted in production
+  default     = ["0.0.0.0/0"] # This should be restricted in production
 }
 
 variable "eks_cluster_version" {
