@@ -1,75 +1,30 @@
-# ArgoCD Helm chart values
-# These values are used to configure the ArgoCD installation
-
-global:
-  image:
-    tag: v2.8.4
-
 server:
-  extraArgs:
-    - --insecure
   service:
-    type: LoadBalancer
+    type: LoadBalancer  
   ingress:
     enabled: true
-    annotations:
-      kubernetes.io/ingress.class: alb
-      alb.ingress.kubernetes.io/scheme: internet-facing
-      alb.ingress.kubernetes.io/target-type: ip
-    hosts:
-      - argocd-${environment}.${project_name}.example.com
 
-controller:
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
+  extraArgs:
+    - --insecure
 
-repoServer:
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
+configs:
+  cm:
+    application.instanceLabelKey: argocd.argoproj.io/instance
+    kustomize.buildOptions: "--enable-helm"
+    repositories: |
+      - url: https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release
 
-applicationSet:
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
+  secret:
+    # Optional: Set ArgoCD admin password (hashed)
+    # Can use: htpasswd -nbBC 10 "" your-password | tr -d ':\n' | sed 's/$2y/$2a/'
+    argocdServerAdminPassword: $2a$10$mivhwttXM0U5eBrZGtAG8.VSRL1l9cZNAmaSaqotVzTdv96Mx4IDS  # bcrypt hash of 'password'
+    # Optional: Set ArgoCD admin password (plain text)
+    # argocdServerAdminPassword: your-password
 
-redis:
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
+  params:
+    server.insecure: true
 
-# Configure RBAC
 rbac:
   policy.default: role:readonly
-  scopes: '[groups]'
-
-# Configure SSO (optional)
-# dex:
-#   enabled: true
-#   config:
-#     connectors:
-#       - type: github
-#         id: github
-#         name: GitHub
-#         config:
-#           clientID: $GITHUB_CLIENT_ID
-#           clientSecret: $GITHUB_CLIENT_SECRET
-#           orgs:
-#             - name: datascientest-fastapi-project-group-25
+  policy.csv: |
+    g, system:authenticated, role:admin

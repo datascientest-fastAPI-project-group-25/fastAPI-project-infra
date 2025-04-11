@@ -31,7 +31,7 @@ variable "eks_cluster_version" {
 variable "eks_node_group_instance_types" {
   description = "Instance types for the EKS node group"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.medium"] # Medium instances for staging
 }
 
 variable "eks_node_group_desired_size" {
@@ -79,6 +79,24 @@ variable "db_name" {
   description = "Database name"
   type        = string
   default     = "postgres"
+}
+
+variable "rds_instance_class" {
+  description = "Instance class for the RDS instance"
+  type        = string
+  default     = "db.t3.micro" # Smaller instance for staging
+}
+
+variable "rds_allocated_storage" {
+  description = "Allocated storage in GB for RDS"
+  type        = number
+  default     = 10 # Less storage for staging
+}
+
+variable "rds_max_allocated_storage" {
+  description = "Maximum allocated storage in GB for RDS autoscaling"
+  type        = number
+  default     = 50 # Less max storage for staging
 }
 
 variable "github_org" {

@@ -1,9 +1,6 @@
 # ================================
-# Production Environment Provider Configuration
+# ArgoCD Deployment Provider Configuration
 # ================================
-
-# Reference the shared provider versions
-# Note: We can't use include here, so we need to copy the provider versions
 
 terraform {
   required_providers {
@@ -19,10 +16,6 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.5"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = ">= 3.0.0"
-    }
     null = {
       source  = "hashicorp/null"
       version = ">= 3.0.0"
@@ -33,11 +26,3 @@ terraform {
     }
   }
 }
-
-# AWS provider configuration
-provider "aws" {
-  region = var.aws_region
-}
-
-# Kubernetes and Helm providers are configured in main.tf
-# because they depend on the EKS cluster which is created there

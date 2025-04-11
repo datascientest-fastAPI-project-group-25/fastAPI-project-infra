@@ -2,7 +2,10 @@
 # Root main.tf for Infra Repo
 # ================================
 
-# Define the required provider versions
+provider "aws" {
+  region = var.aws_region
+}
+
 terraform {
   required_providers {
     aws = {
@@ -17,21 +20,8 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.5"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = ">= 3.0.0"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = ">= 3.0.0"
-    }
-    time = {
-      source  = "hashicorp/time"
-      version = ">= 0.9.0"
-    }
   }
 
-  # Backend configuration for state management
   backend "s3" {
     bucket         = "fastapi-project-terraform-state-575977136211"
     key            = "fastapi/infra/terraform.tfstate"
@@ -40,28 +30,21 @@ terraform {
   }
 }
 
-# AWS provider configuration
-provider "aws" {
-  region = var.aws_region
-}
-
-
-
 # Create VPC using our custom module
 module "vpc" {
-  source       = "./modules/vpc"
-  aws_region   = var.aws_region
-  environment  = var.environment
+  source      = "./modules/vpc"
+  aws_region  = var.aws_region
+  environment = var.environment
   project_name = "fastapi-project"
 }
 
 # Create security groups for EKS access
 module "security" {
-  source              = "./modules/security"
-  vpc_id              = module.vpc.vpc_id
-  environment         = var.environment
-  project_name        = "fastapi-project"
-  allowed_cidr_blocks = ["0.0.0.0/0"] # This should be restricted in production
+  source      = "./modules/security"
+  vpc_id      = module.vpc.vpc_id
+  environment = var.environment
+  project_name = "fastapi-project"
+  allowed_cidr_blocks = ["0.0.0.0/0"]  # This should be restricted in production
 
   depends_on = [module.vpc]
 }
@@ -111,7 +94,6 @@ provider "helm" {
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "./modules/k8s-resources"
-  environment     = var.environment
   github_username = var.github_username
   github_token    = var.github_token
   db_username     = var.db_username
@@ -123,12 +105,12 @@ module "k8s_resources" {
 
 # Deploy ArgoCD using our custom module
 module "argocd" {
-  source                                 = "./modules/argo"
-  environment                            = var.environment
-  project_name                           = "fastapi-project"
-  eks_cluster_endpoint                   = module.eks.cluster_endpoint
+  source                              = "./modules/argo"
+  environment                         = var.environment
+  project_name                        = "fastapi-project"
+  eks_cluster_endpoint                = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
-  eks_auth_token                         = data.aws_eks_cluster_auth.cluster.token
+  eks_auth_token                      = data.aws_eks_cluster_auth.cluster.token
 
   depends_on = [module.eks, module.k8s_resources]
 }
