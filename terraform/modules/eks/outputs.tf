@@ -31,7 +31,7 @@ output "oidc_provider" {
 
 output "worker_iam_role_arn" {
   description = "ARN of the EKS worker IAM role"
-  value       = module.eks.worker_iam_role_arn
+  value       = module.eks.eks_managed_node_groups.default.iam_role_arn
 }
 
 output "cluster_name" {
