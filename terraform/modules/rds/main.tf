@@ -30,9 +30,10 @@ resource "aws_secretsmanager_secret_version" "postgres_credentials" {
 resource "aws_db_instance" "postgres" {
   identifier              = "fastapi-${var.environment}"
   engine                  = "postgres"
-  engine_version          = "14.7"
+  engine_version          = var.postgres_version
   instance_class          = var.instance_class
   allocated_storage       = var.allocated_storage
+  max_allocated_storage   = var.max_allocated_storage
   storage_type            = "gp3"
   db_name                 = var.db_name
   username                = var.db_username
