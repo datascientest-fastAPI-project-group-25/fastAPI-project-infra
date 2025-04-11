@@ -1,9 +1,10 @@
 # Variables for GitHub Container Registry Access module
 
 variable "github_username" {
-  description = "GitHub username for Container Registry authentication"
+  description = "GitHub username for Container Registry authentication (not needed with OIDC)"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "github_token" {
@@ -16,7 +17,7 @@ variable "github_token" {
 variable "namespaces" {
   description = "List of Kubernetes namespaces where the service account should be created"
   type        = list(string)
-  default     = ["fastapi-helm-dev", "fastapi-helm-staging", "fastapi-helm-prod"]
+  default     = ["default", "argocd"]
 }
 
 variable "eks_role_arn" {
