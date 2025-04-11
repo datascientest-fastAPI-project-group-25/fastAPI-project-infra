@@ -5,21 +5,20 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: fastapi-app
+  name: argocd
   namespace: argocd
 spec:
-  destination:
-    namespace: fastapi-helm
-    server: https://kubernetes.default.svc
   project: default
   source:
-    repoURL: https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release
+    repoURL: https://github.com/datascientest-fastapi-project-group-25/fastAPI-project-release
     targetRevision: main
-    path: charts/fastapi
-    helm:
-      valueFiles:
-        - values.yaml
+    path: argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

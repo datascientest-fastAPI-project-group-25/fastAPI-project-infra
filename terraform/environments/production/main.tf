@@ -124,3 +124,25 @@ module "argocd" {
 
   depends_on = [module.eks, module.k8s_resources]
 }
+
+# Deploy External Secrets Operator
+module "external_secrets" {
+  source               = "../../modules/external-secrets"
+  project_name         = var.project_name
+  environment          = "production"
+  region               = var.aws_region
+  eks_oidc_provider    = module.eks.oidc_provider
+  eks_oidc_provider_arn = module.eks.oidc_provider_arn
+
+  depends_on = [module.eks]
+}
+
+# Configure GitHub Container Registry Access
+module "ghcr_access" {
+  source          = "../../modules/ghcr-access"
+  github_username = var.github_username
+  github_token    = var.github_token
+  eks_role_arn    = module.eks.worker_iam_role_arn
+
+  depends_on = [module.eks, module.k8s_resources]
+}

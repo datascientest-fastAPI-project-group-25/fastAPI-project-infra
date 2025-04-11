@@ -8,21 +8,21 @@ spec:
     - list:
         elements:
           # Development environment
-          - environment: development
+          - environment: dev
             namespace: fastapi-helm-dev
-            valueFile: values.yaml
+            valueFile: config/helm/dev.yaml
             targetRevision: development
             cluster: https://kubernetes.default.svc
           # Staging environment
           - environment: staging
             namespace: fastapi-helm-staging
-            valueFile: staging.yaml
-            targetRevision: development
+            valueFile: config/helm/staging.yaml
+            targetRevision: stg
             cluster: https://kubernetes.default.svc
           # Production environment
           - environment: production
             namespace: fastapi-helm-prod
-            valueFile: production.yaml
+            valueFile: config/helm/production.yaml
             targetRevision: main
             cluster: https://kubernetes.default.svc
   template:
