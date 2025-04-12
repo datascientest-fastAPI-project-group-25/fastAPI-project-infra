@@ -1,15 +1,16 @@
 # FastAPI Project Infrastructure
 
-Infrastructure as Code (IaC) repository for managing the FastAPI project infrastructure using Terraform.
+Infrastructure as Code (IaC) repository for managing the FastAPI project infrastructure using Terraform with OIDC authentication for secure GitHub Actions integration.
 
 ## 📋 Project Overview
 
-This repository contains the infrastructure code for the FastAPI project, organized into two main components:
+This repository contains the infrastructure code for the FastAPI project, organized into three main components:
 
 | Component | Description |
 |-----------|-------------|
 | **Bootstrap** | Sets up foundational AWS resources (S3, DynamoDB, IAM) |
-| **Terraform** | Manages the main application infrastructure |
+| **Terraform Modules** | Reusable infrastructure components (VPC, EKS, ArgoCD, etc.) |
+| **Environment Deployments** | Environment-specific configurations (Development, Staging, Production) |
 
 ## 🏗️ Architecture
 
@@ -20,102 +21,102 @@ This repository contains the infrastructure code for the FastAPI project, organi
 | Directory | Description |
 |-----------|-------------|
 | `bootstrap/` | Infrastructure bootstrap code |
-| `bootstrap/environments/` | Environment-specific configurations |
-| `bootstrap/modules/` | Reusable Terraform modules |
-| `bootstrap/scripts/` | Utility scripts for environment setup |
+| `bootstrap/environments/` | Environment-specific bootstrap configurations |
+| `bootstrap/modules/` | Reusable bootstrap Terraform modules |
+| `bootstrap/scripts/` | Utility scripts for bootstrap setup |
+| `terraform/modules/` | Reusable infrastructure modules |
+| `terraform/modules/argo/` | ArgoCD deployment module |
+| `terraform/modules/eks/` | EKS cluster module |
+| `terraform/modules/external-secrets/` | External Secrets Operator module |
+| `terraform/modules/ghcr-access/` | GitHub Container Registry access module |
+| `terraform/modules/iam/` | IAM roles and policies module |
+| `terraform/modules/k8s-resources/` | Kubernetes resources module |
+| `terraform/modules/oidc/` | OIDC provider module |
+| `terraform/modules/rds/` | RDS database module |
+| `terraform/modules/security/` | Security groups module |
+| `terraform/modules/vpc/` | VPC network module |
+| `terraform/environments/` | Environment-specific deployments |
+| `terraform/environments/clean-deploy/` | Clean deployment approach |
+| `terraform/environments/clean-deploy/development/` | Development environment configuration |
+| `terraform/environments/clean-deploy/staging/` | Staging environment configuration |
+| `terraform/environments/clean-deploy/production/` | Production environment configuration |
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 1. **AWS CLI**: Installed and configured with appropriate credentials
-2. **Terraform**: Version 1.0.0 or later
-3. **Make**: For running automation commands
-4. **Docker**: Required for running LocalStack and the dockerized environments
+2. **Terraform**: Version 1.5.7 or later
+3. **kubectl**: For interacting with Kubernetes clusters
+4. **GitHub Account**: For OIDC authentication
 
 ### Environment Setup
 
 1. **Clone the repository**
+
    ```bash
-   git clone https://github.com/yourusername/fastapi-project-infra.git
-   cd fastapi-project-infra
+   git clone https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra.git
+   cd fastAPI-project-infra
    ```
 
-2. **Set up environment variables**
+2. **Set up AWS credentials**
+
    ```bash
-   cp bootstrap/.env.base.example bootstrap/.env.base
-   # Edit the file with your AWS credentials
+   aws configure
+   # Enter your AWS Access Key ID, Secret Access Key, and default region
    ```
 
-### LocalStack Development
+### Setting up Terraform State
 
 ```bash
-# Start LocalStack
-make -C bootstrap start-localstack
-
-# Initialize Terraform
-make -C bootstrap local-init
-
-# Plan and apply changes
-make -C bootstrap local-plan
-make -C bootstrap local-apply
-
-# Run a bootstrap dry run (create, test, destroy resources)
-make -C bootstrap localstack-bootstrap-dryrun
-
-# Clean up when done
-make -C bootstrap local-destroy
-make -C bootstrap stop-localstack
+# Create S3 bucket and DynamoDB table for Terraform state
+./setup-state.sh
 ```
 
-### AWS Deployment
+### Deploying with OIDC Authentication
 
 ```bash
-# Prepare AWS environment (package Lambda functions)
-make -C bootstrap aws-prepare
-
-# Set up Terraform state resources
-make -C bootstrap aws-setup-state
-
-# Initialize Terraform
-make -C bootstrap aws-init
-
-# Plan and apply changes
-make -C bootstrap aws-plan
-make -C bootstrap aws-apply
-
-# Run a bootstrap dry run (create, test, destroy resources)
-make -C bootstrap aws-bootstrap-dryrun
+# Deploy infrastructure with OIDC authentication
+./deploy-with-oidc.sh
 ```
 
-### Dockerized Environments
+### Staged Deployment
 
-Both bootstrap environments (AWS and LocalStack) have been dockerized to ensure they can run on any system.
+For more control, you can deploy each component separately:
 
 ```bash
-# Build Docker images
-make -C bootstrap docker-build
+# Deploy IAM resources
+cd terraform/environments/clean-deploy/development
+terraform init \
+  -backend-config="bucket=fastapi-project-terraform-state-YOUR_AWS_ACCOUNT_ID" \
+  -backend-config="key=fastapi/infra/dev/terraform.tfstate" \
+  -backend-config="region=us-east-1" \
+  -backend-config="dynamodb_table=terraform-state-lock-dev"
+terraform apply -target=module.iam
 
-# Start AWS environment in Docker
-make -C bootstrap docker-aws
+# Deploy VPC
+terraform apply -target=module.vpc
 
-# Start LocalStack environment in Docker
-make -C bootstrap docker-localstack
+# Deploy security groups
+terraform apply -target=module.security
 
-# Run bootstrap dry run in AWS using Docker
-make -C bootstrap docker-aws-bootstrap-dryrun
+# Deploy EKS cluster
+terraform apply -target=module.eks
 
-# Run bootstrap dry run in LocalStack using Docker
-make -C bootstrap docker-localstack-bootstrap-dryrun
+# Deploy Kubernetes resources
+terraform apply -target=module.k8s_resources
 
-# Test both environments
-make -C bootstrap docker-test
+# Deploy ArgoCD
+terraform apply -target=module.argocd
 
-# Clean up Docker resources
-make -C bootstrap docker-clean
+# Deploy External Secrets Operator
+terraform apply -target=module.external_secrets
+
+# Deploy GHCR access
+terraform apply -target=module.ghcr_access
 ```
 
-For more information, see the [Bootstrap README](bootstrap/README.md).
+For more information, see the [Clean Deploy README](terraform/environments/clean-deploy/README.md).
 
 ## 🛠️ Make Commands
 
@@ -159,92 +160,121 @@ For more information, see the [Bootstrap README](bootstrap/README.md).
 | `make -C bootstrap docker-test` | Test both Docker environments |
 | `make -C bootstrap docker-clean` | Clean up Docker resources |
 
-## 🔐 AWS Credentials
+## 🔐 AWS Authentication
 
-### Required Credentials
+### OIDC Authentication
 
-| Credential | Description | Secret Name |
-|------------|-------------|------------|
-| **AWS Account ID** | Your 12-digit AWS account number | `AWS_ACCOUNT_ID` |
-| **Access Key ID** | AWS access key for authentication | `AWS_ACCESS_KEY_ID` |
-| **Secret Access Key** | AWS secret key for authentication | `AWS_SECRET_ACCESS_KEY` |
+This project uses OpenID Connect (OIDC) for secure authentication between GitHub Actions and AWS, eliminating the need for long-lived AWS credentials.
+
+#### Benefits of OIDC
+
+| Benefit | Description |
+|---------|-------------|
+| **No Stored Secrets** | No AWS credentials stored in GitHub Secrets |
+| **Short-lived Credentials** | Temporary credentials generated on-demand |
+| **Fine-grained Permissions** | Precise control over which repositories and branches can access AWS resources |
+| **Reduced Risk** | Eliminates risk of leaked credentials |
+
+### Required Configuration
+
+| Resource | Description |
+|----------|-------------|
+| **OIDC Provider** | AWS IAM OIDC provider for GitHub Actions |
+| **IAM Role** | Role with appropriate permissions that GitHub Actions can assume |
+| **Trust Relationship** | Policy that allows specific GitHub repositories to assume the role |
 
 ### Setup Process
 
-1. **Navigate to repository settings**
-   - Go to your GitHub repository
-   - Click "Settings" → "Secrets and variables" → "Actions"
+1. **Create OIDC Provider**
+   - This is automatically created by the `setup-state.sh` script
+   - Or manually create an OIDC provider with URL `https://token.actions.githubusercontent.com`
 
-2. **Add the required secrets**:
-   ```
-   AWS_ACCOUNT_ID         # Your 12-digit AWS account ID
-   AWS_ACCESS_KEY_ID      # Your AWS access key
-   AWS_SECRET_ACCESS_KEY  # Your AWS secret key
-   ```
+2. **Create IAM Role**
+   - This is automatically created by the `setup-state.sh` script
+   - Or manually create a role with appropriate permissions and trust relationship
 
 ### Usage in Workflows
 
-The GitHub Actions workflows automatically use these secrets:
+The GitHub Actions workflows automatically use OIDC authentication:
 
 ```yaml
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  AWS_DEFAULT_REGION: eu-west-2
+permissions:
+  id-token: write  # Required for OIDC authentication
+  contents: read
+
+jobs:
+  deploy:
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-role
+          aws-region: us-east-1
 ```
 
 ### Security Best Practices
 
 | Practice | Description |
 |----------|-------------|
-| **Use Secrets** | Never commit credentials to the repository |
-| **Limit Permissions** | Use IAM roles with minimal required access |
-| **Rotate Keys** | Regularly change access keys |
+| **Restrict by Repository** | Limit which repositories can assume the role |
+| **Restrict by Branch** | Limit which branches can assume the role |
+| **Least Privilege** | Grant only the permissions needed for the workflow |
 | **Monitor Activity** | Watch for unusual AWS account activity |
+| **Regular Audits** | Periodically review OIDC configurations and permissions |
 
-## 🌍 Environment Variables
+## 🌍 Environment Configuration
 
 ### Environment Structure
 
-![Environment Variables Flow](https://mermaid.ink/img/pako:eNp1ksFqwzAMhl9F-NRCXyDQQw9bKYUNtl56ETLWEjOcyMhyxyB594nEhbXQnWT9_z99kjdUziFqVK_4cOQJPFqPgRJYCMxJBPZgKdCMNmAiS5FCYOcpwYTOUqDXYCjQO_qEgZxlP1MIFNlToBHHGSKNZMFjILvgGMgvOEZyC46JhoVjJrtwLDTNHAu5mWOlbuJYyU8cG7ULx0bNzLFTvXDs5CeOg-qF46Bm5jjITxwntTPHSe3CcZKfOC6qFo6L6pnjIj9x3FSNjpvKwXFTMThuciPjTfngeJPvHR_Kro6P8r3jU9nV8Sl_c3yW7Ryf8p3jS9nW8SXfOr7Kto6v8q3ju2zr-C7fOH7Kto6f8o3jV9nW8avs4vhd1jt-l_WO_2Wd43_Z2vG_rHP8K1s7_pV1jv9la8e_ss7xXbZ2fJf_AK6Jqzc?type=png)
+The infrastructure is organized into three environments, each with its own configuration:
 
-### File Structure
+| Environment | Purpose | Characteristics |
+|-------------|---------|----------------|
+| **Development** | For development and testing | Lightweight, in-cluster PostgreSQL |
+| **Staging** | Pre-production testing | Mirrors production with smaller resources, RDS PostgreSQL |
+| **Production** | Live environment | High availability, RDS PostgreSQL with multi-AZ |
 
-| Location | File | Purpose |
-|----------|------|---------|
-| **Root** | `.env.base` | Common settings for all environments |
-| **Root** | `.env.<environment>` | Environment-specific settings |
-| **Bootstrap** | `bootstrap/.env.base` | Common bootstrap settings |
-| **Bootstrap** | `bootstrap/.env.<environment>` | Bootstrap-specific settings |
-| **Environments** | `bootstrap/environments/aws/.env.aws` | AWS-specific variables |
-| **Environments** | `bootstrap/environments/localstack/.env.local` | LocalStack-specific variables |
-| **Tests** | `tests/.env.test` | Test-specific variables |
-| **Tests** | `tests/.env.local-test` | Local test variables for GitHub Actions |
+### Configuration Files
 
-### Loading Order
+| Location | Purpose |
+|----------|--------|
+| `terraform/environments/clean-deploy/development/` | Development environment configuration |
+| `terraform/environments/clean-deploy/staging/` | Staging environment configuration |
+| `terraform/environments/clean-deploy/production/` | Production environment configuration |
+| `terraform/environments/clean-deploy/development/terraform.tfvars` | Development-specific variables |
+| `terraform/environments/clean-deploy/staging/terraform.tfvars` | Staging-specific variables |
+| `terraform/environments/clean-deploy/production/terraform.tfvars` | Production-specific variables |
 
-Variables are loaded in the following order, with later files overriding earlier ones:
+### Terraform Variables
 
-1. `.env.base` → 2. `.env.<environment>` → 3. `bootstrap/.env.base` → 4. `bootstrap/.env.<environment>`
+Each environment has its own set of variables defined in `terraform.tfvars` files:
 
-### Example Variables
+```hcl
+# Example Development Variables (development/terraform.tfvars)
+project_name    = "fastapi-project"
+environment     = "dev"
+aws_region      = "us-east-1"
+cidr            = "10.0.0.0/16"
+db_username     = "postgres"
+db_password     = "postgres123"
+github_token    = "ghp_xxxxxxxxxxxxxxxxxxxx"
 
-```bash
-# Common Variables (.env.base)
-AWS_ACCESS_KEY_ID=your-aws-access-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret-key
-AWS_ACCOUNT_ID=your-aws-account-id
-PROJECT_NAME=fastapi-project
-
-# Environment Variables (.env.<environment>)
-AWS_DEFAULT_REGION=eu-west-2
-ENVIRONMENT=dev
-
-# AWS-Specific Variables
-AWS_BOOTSTRAP_ROLE_NAME=terraform-bootstrap-role
-AWS_BOOTSTRAP_POLICY_NAME=terraform-bootstrap-policy
+# Cluster Configuration
+eks_cluster_name = "fastapi-project-eks-dev"
+eks_cluster_version = "1.27"
+eks_instance_types = ["t3.small"]
 ```
+
+### Environment-Specific Differences
+
+| Feature | Development | Staging | Production |
+|---------|------------|---------|------------|
+| **Database** | In-cluster PostgreSQL | RDS PostgreSQL | RDS PostgreSQL (Multi-AZ) |
+| **Instance Types** | t3.small | t3.medium | t3.large |
+| **Node Count** | 2 | 2 | 3 |
+| **CIDR Range** | 10.0.0.0/16 | 10.1.0.0/16 | 10.2.0.0/16 |
+| **Self-healing** | Basic | Enhanced | Full |
+| **Monitoring** | Basic | Enhanced | Comprehensive |
 
 ## 🔄 Development Workflow
 
@@ -263,12 +293,13 @@ This project follows a trunk-based development model to maintain code quality an
 - `feat/*`: Feature branches
 - `fix/*`: Bug fix branches
 
-### Environment Structure
+### Folder-Based Environments
 
 Instead of using separate branches for different environments, we use folder-based environments:
 
-- `environments/stg/`: Configuration for the staging environment.
-- `environments/prod/`: Configuration for the production environment.
+- `terraform/environments/clean-deploy/development/`: Configuration for the development environment.
+- `terraform/environments/clean-deploy/staging/`: Configuration for the staging environment.
+- `terraform/environments/clean-deploy/production/`: Configuration for the production environment.
 
 ### Git Commands
 
