@@ -58,6 +58,58 @@ terraform init
 terraform apply
 ```
 
+## Staged Deployment
+
+To handle dependencies and avoid circular references, the infrastructure can be deployed in stages using the Makefile:
+
+### Development Staged Deployment
+
+```bash
+# Initialize the Terraform configuration
+make init-dev
+
+# Deploy each stage in sequence
+make apply-dev-vpc
+make apply-dev-security
+make apply-dev-eks
+make apply-dev-k8s
+make apply-dev-argocd
+make apply-dev-external-secrets
+make apply-dev-ghcr
+```
+
+### Staging Staged Deployment
+
+```bash
+# Initialize the Terraform configuration
+make init-staging
+
+# Deploy each stage in sequence
+make apply-staging-vpc
+make apply-staging-security
+make apply-staging-eks
+make apply-staging-k8s
+make apply-staging-argocd
+make apply-staging-external-secrets
+make apply-staging-ghcr
+```
+
+### Production Staged Deployment
+
+```bash
+# Initialize the Terraform configuration
+make init-prod
+
+# Deploy each stage in sequence
+make apply-prod-vpc
+make apply-prod-security
+make apply-prod-eks
+make apply-prod-k8s
+make apply-prod-argocd
+make apply-prod-external-secrets
+make apply-prod-ghcr
+```
+
 ## Important Notes
 
 - Each environment uses a different VPC CIDR range to avoid conflicts
@@ -163,6 +215,6 @@ Port-forwards the ArgoCD UI for a specific environment:
 ./port-forward-argocd.sh <environment>
 ```
 
-The ArgoCD UI will be available at: https://localhost:8080
+The ArgoCD UI will be available at: `https://localhost:8080`
 
 Use 'admin' as the username and the password from get-argocd-password.sh.
