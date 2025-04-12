@@ -1,23 +1,58 @@
-name: Terraform
+name: Terraform Infrastructure Deployment
 
 on:
   push:
     branches:
       - main
       - development
+      - 'fix/**'
+      - 'feat/**'
   pull_request:
     branches:
       - main
       - development
+    paths:
+      - '**.tf'
+      - '.github/workflows/**'
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
+  pull-requests: write
+  actions: write
 
 jobs:
+  determine_environment:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set_env.outputs.environment }}
+    steps:
+      - name: Set environment based on branch
+        id: set_env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/development" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          else
+            echo "environment=development" >> $GITHUB_OUTPUT
+          fi
+
   terraform:
     name: Terraform
+    needs: determine_environment
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCOUNT_ID: "575977136211"
+      AWS_DEFAULT_REGION: "us-east-1"
+      PROJECT_NAME: "fastapi-project"
+      ENVIRONMENT: ${{ needs.determine_environment.outputs.environment }}
+      TF_VAR_aws_account_id: "575977136211"
+      TF_VAR_github_repo: ${{ github.repository }}
+      TF_INPUT: false
+      TF_IN_AUTOMATION: true
 
     steps:
       - name: Checkout code
@@ -34,28 +69,80 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      - name: Terraform Init
+      - name: Validate AWS credentials
         run: |
-          cd terraform/environments/clean-deploy/development
-          terraform init \
-            -backend-config="bucket=fastapi-project-terraform-state-575977136211" \
-            -backend-config="key=fastapi/infra/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="dynamodb_table=terraform-state-lock-dev"
+          aws sts get-caller-identity || {
+            echo "Failed to validate AWS credentials"
+            exit 1
+          }
 
       - name: Terraform Format
         run: |
           cd terraform
           terraform fmt -check -recursive
 
-      - name: Terraform Plan
-        if: github.event_name == 'pull_request'
+      - name: Terraform Init - Development
+        if: needs.determine_environment.outputs.environment == 'development'
         run: |
           cd terraform/environments/clean-deploy/development
-          terraform plan -var-file=terraform.tfvars
+          terraform init \
+            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
+            -backend-config="key=fastapi/infra/dev/terraform.tfstate" \
+            -backend-config="region=${AWS_DEFAULT_REGION}" \
+            -backend-config="dynamodb_table=terraform-state-lock-dev"
 
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Terraform Init - Staging
+        if: needs.determine_environment.outputs.environment == 'staging'
+        run: |
+          cd terraform/environments/clean-deploy/staging
+          terraform init \
+            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
+            -backend-config="key=fastapi/infra/staging/terraform.tfstate" \
+            -backend-config="region=${AWS_DEFAULT_REGION}" \
+            -backend-config="dynamodb_table=terraform-state-lock-dev"
+
+      - name: Terraform Init - Production
+        if: needs.determine_environment.outputs.environment == 'production'
+        run: |
+          cd terraform/environments/clean-deploy/production
+          terraform init \
+            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
+            -backend-config="key=fastapi/infra/prod/terraform.tfstate" \
+            -backend-config="region=${AWS_DEFAULT_REGION}" \
+            -backend-config="dynamodb_table=terraform-state-lock-dev"
+
+      - name: Terraform Plan - Development
+        if: needs.determine_environment.outputs.environment == 'development'
         run: |
           cd terraform/environments/clean-deploy/development
+          terraform plan -var-file=terraform.tfvars -out=tfplan
+
+      - name: Terraform Plan - Staging
+        if: needs.determine_environment.outputs.environment == 'staging'
+        run: |
+          cd terraform/environments/clean-deploy/staging
+          terraform plan -var-file=terraform.tfvars -out=tfplan
+
+      - name: Terraform Plan - Production
+        if: needs.determine_environment.outputs.environment == 'production'
+        run: |
+          cd terraform/environments/clean-deploy/production
+          terraform plan -var-file=terraform.tfvars -out=tfplan
+
+      - name: Terraform Apply - Development
+        if: needs.determine_environment.outputs.environment == 'development' && (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/fix/') || startsWith(github.ref, 'refs/heads/feat/')) && github.event_name == 'push'
+        run: |
+          cd terraform/environments/clean-deploy/development
+          terraform apply -var-file=terraform.tfvars -auto-approve
+
+      - name: Terraform Apply - Staging
+        if: needs.determine_environment.outputs.environment == 'staging' && github.ref == 'refs/heads/development' && github.event_name == 'push'
+        run: |
+          cd terraform/environments/clean-deploy/staging
+          terraform apply -var-file=terraform.tfvars -auto-approve
+
+      - name: Terraform Apply - Production
+        if: needs.determine_environment.outputs.environment == 'production' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd terraform/environments/clean-deploy/production
           terraform apply -var-file=terraform.tfvars -auto-approve
