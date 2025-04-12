@@ -9,11 +9,11 @@ provider "aws" {
 
 # Data source to get EKS cluster information
 data "aws_eks_cluster" "cluster" {
-  name = "fastapi-project-dev2"
+  name = "fastapi-project-eks-dev2"
 }
 
 data "aws_eks_cluster_auth" "cluster" {
-  name = "fastapi-project-dev2"
+  name = "fastapi-project-eks-dev2"
 }
 
 # Configure Kubernetes provider with EKS cluster details
