@@ -1,6 +1,6 @@
 # Terraform backend and provider configuration
 terraform {
-  # Using local backend for development
+  # Using local backend for development initially
   backend "local" {}
 
   required_providers {
