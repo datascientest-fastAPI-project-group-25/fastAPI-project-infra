@@ -14,7 +14,7 @@ ENVIRONMENT=$1
 echo "Checking ArgoCD installation in $ENVIRONMENT environment..."
 
 # Get the ArgoCD namespace
-NAMESPACE="argocd-$ENVIRONMENT"
+NAMESPACE="argocd"
 
 echo "Checking ArgoCD namespace..."
 kubectl get namespace $NAMESPACE

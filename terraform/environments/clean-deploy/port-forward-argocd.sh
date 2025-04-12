@@ -14,7 +14,7 @@ ENVIRONMENT=$1
 echo "Port-forwarding ArgoCD UI for $ENVIRONMENT environment..."
 
 # Get the ArgoCD namespace
-NAMESPACE="argocd-$ENVIRONMENT"
+NAMESPACE="argocd"
 
 # Port-forward the ArgoCD server
 kubectl port-forward svc/argocd-server -n $NAMESPACE 8080:443
