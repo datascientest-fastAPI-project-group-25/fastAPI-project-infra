@@ -9,8 +9,7 @@ on:
       - 'feat/**'
   pull_request:
     branches:
-      - main
-      - development
+      - main    
     paths:
       - '**.tf'
       - '.github/workflows/**'
