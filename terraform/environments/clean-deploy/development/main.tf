@@ -1,5 +1,16 @@
 # Development Environment Configuration
 
+# Configure IAM resources for OIDC authentication
+module "iam" {
+  source           = "../../../modules/iam"
+  environment      = "dev"
+  project_name     = var.project_name
+  aws_region       = var.aws_region
+  github_org       = var.github_org
+  state_bucket_name = "fastapi-project-terraform-state-575977136211"
+  lock_table_name  = "terraform-state-lock"
+}
+
 # Create VPC using our custom module
 module "vpc" {
   source       = "../../../modules/vpc"
