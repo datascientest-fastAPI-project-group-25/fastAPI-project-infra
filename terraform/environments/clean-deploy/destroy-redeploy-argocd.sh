@@ -44,7 +44,7 @@ echo "Creating values file..."
 cat > argocd-values.yaml << EOF
 server:
   service:
-    type: LoadBalancer  
+    type: LoadBalancer
   ingress:
     enabled: true
 
@@ -58,9 +58,8 @@ configs:
     repositories: |
       - url: https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release
 
-  secret:
-    # Set ArgoCD admin password (plain text)
-    argocdServerAdminPassword: admin123
+  # Let ArgoCD generate a random initial admin password
+  # We'll retrieve it after installation
 
   params:
     server.insecure: true
@@ -85,11 +84,30 @@ echo "Step 5: Getting the ArgoCD server URL..."
 ARGOCD_SERVER=$(kubectl get svc -n argocd argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo "ArgoCD server URL: http://$ARGOCD_SERVER"
 
-# Step 6: Test the login
-echo "Step 6: Testing the login..."
-echo "You can now access ArgoCD with the following credentials:"
-echo "Username: admin"
-echo "Password: admin123"
+# Step 6: Get the initial admin password
+echo "Step 6: Getting the initial admin password..."
+echo "Waiting for the initial admin secret to be created..."
+sleep 10
+
+# Try to get the password multiple times as it might take some time to be created
+for i in {1..10}; do
+    ADMIN_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d)
+    if [ -n "$ADMIN_PASSWORD" ]; then
+        break
+    fi
+    echo "Waiting for the initial admin secret to be created... (attempt $i)"
+    sleep 5
+done
+
+if [ -n "$ADMIN_PASSWORD" ]; then
+    echo "You can now access ArgoCD with the following credentials:"
+    echo "Username: admin"
+    echo "Password: $ADMIN_PASSWORD"
+else
+    echo "Warning: Could not retrieve the initial admin password."
+    echo "You can try to get it manually with:"
+    echo "kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d"
+fi
 
 # Clean up
 rm argocd-values.yaml
