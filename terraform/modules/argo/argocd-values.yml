@@ -14,12 +14,9 @@ configs:
     repositories: |
       - url: https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release
 
-  secret:
-    # Set ArgoCD admin password (plain text)
-    argocdServerAdminPassword: admin123
-    # Alternative: Set ArgoCD admin password (hashed)
-    # Can use: htpasswd -nbBC 10 "" your-password | tr -d ':\n' | sed 's/$2y/$2a/'
-    # argocdServerAdminPassword: $2a$10$mivhwttXM0U5eBrZGtAG8.VSRL1l9cZNAmaSaqotVzTdv96Mx4IDS  # bcrypt hash of 'password'
+  # Let ArgoCD generate a random initial admin password
+  # We'll retrieve it after installation using:
+  # kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 
   params:
     server.insecure: true
