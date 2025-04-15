@@ -1,15 +1,34 @@
 #!/bin/bash
 
-# Set environment variables
-export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID .env | cut -d= -f2)
-export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY .env | cut -d= -f2)
-export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=575977136211
-export PROJECT_NAME=fastapi-project
-export ENVIRONMENT=dev
+# Script to deploy infrastructure using Terraform
+#
+# Usage:
+#   ./deploy.sh                  # Deploy all infrastructure
+#   ./deploy.sh vpc             # Deploy only the VPC module
+#   ./deploy.sh eks             # Deploy only the EKS module
+#   ./deploy.sh security        # Deploy only the security module
+#   ./deploy.sh argo            # Deploy only the ArgoCD module
 
-# Set AWS profile to use the role
-export AWS_PROFILE=infra-role
+# Check if .env file exists and load environment variables
+if [ -f ".env" ]; then
+    export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID .env | cut -d= -f2)
+    export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY .env | cut -d= -f2)
+fi
+
+# Set default environment variables if not already set
+: ${AWS_DEFAULT_REGION:="us-east-1"}
+: ${PROJECT_NAME:="fastapi-project"}
+: ${ENVIRONMENT:="dev"}
+
+# Get AWS account ID if not set
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+fi
+
+# Set AWS profile if specified
+if [ ! -z "$AWS_PROFILE" ]; then
+    echo "Using AWS Profile: $AWS_PROFILE"
+fi
 
 echo "Deploying infrastructure to AWS..."
 echo "Using AWS Account: $AWS_ACCOUNT_ID"
@@ -30,10 +49,10 @@ cd terraform
 # Initialize Terraform
 echo "Initializing Terraform..."
 terraform init -reconfigure -upgrade \
-    -backend-config="bucket=fastapi-project-terraform-state-575977136211" \
-    -backend-config="key=fastapi/infra/terraform.tfstate" \
-    -backend-config="region=us-east-1" \
-    -backend-config="dynamodb_table=terraform-state-lock-test"
+    -backend-config="bucket=${PROJECT_NAME}-terraform-state-${AWS_ACCOUNT_ID}" \
+    -backend-config="key=${PROJECT_NAME}/infra/terraform.tfstate" \
+    -backend-config="region=${AWS_DEFAULT_REGION}" \
+    -backend-config="dynamodb_table=terraform-state-lock-${ENVIRONMENT}"
 
 # Validate Terraform configuration
 echo "Validating Terraform configuration..."
@@ -47,19 +66,46 @@ fi
 # Plan Terraform changes
 echo "Planning Terraform changes..."
 terraform plan \
-    -var="aws_region=us-east-1" \
-    -var="environment=dev" \
+    -var="aws_region=${AWS_DEFAULT_REGION}" \
+    -var="environment=${ENVIRONMENT}" \
     -out=tfplan
 
-# Ask for confirmation
-read -p "Do you want to apply these changes? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    # Apply Terraform changes
-    echo "Applying Terraform changes..."
-    terraform apply tfplan
-    
-    echo "Infrastructure deployed successfully!"
+# Check if a specific module was specified
+if [ ! -z "$1" ]; then
+    MODULE=$1
+    echo "Deploying specific module: $MODULE"
+
+    # Plan Terraform changes for the specific module
+    echo "Planning Terraform changes for module $MODULE..."
+    terraform plan \
+        -var="aws_region=${AWS_DEFAULT_REGION}" \
+        -var="environment=${ENVIRONMENT}" \
+        -target=module.$MODULE \
+        -out=tfplan
+
+    # Ask for confirmation
+    read -p "Do you want to apply these changes to module $MODULE? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Apply Terraform changes
+        echo "Applying Terraform changes to module $MODULE..."
+        terraform apply tfplan
+
+        echo "Module $MODULE deployed successfully!"
+    else
+        echo "Deployment cancelled."
+    fi
 else
-    echo "Deployment cancelled."
+    # Ask for confirmation
+    read -p "Do you want to apply these changes? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        # Apply Terraform changes
+        echo "Applying Terraform changes..."
+        terraform apply tfplan
+
+        echo "Infrastructure deployed successfully!"
+    else
+        echo "Deployment cancelled."
+    fi
 fi

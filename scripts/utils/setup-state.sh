@@ -1,16 +1,26 @@
 #!/bin/bash
 
-# Set environment variables
-export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID ../.env | cut -d= -f2)
-export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY ../.env | cut -d= -f2)
-export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=575977136211
-export PROJECT_NAME=fastapi-project
-export ENVIRONMENT=dev
+# Script to create S3 bucket and DynamoDB table for Terraform state
+
+# Check if .env file exists and load environment variables
+if [ -f "../.env" ]; then
+    export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID ../.env | cut -d= -f2)
+    export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY ../.env | cut -d= -f2)
+fi
+
+# Set default environment variables if not already set
+: ${AWS_DEFAULT_REGION:="us-east-1"}
+: ${PROJECT_NAME:="fastapi-project"}
+: ${ENVIRONMENT:="dev"}
+
+# Get AWS account ID if not set
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+fi
 
 # Set bucket and table names
-BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-DYNAMODB_TABLE="terraform-state-lock-test"
+BUCKET_NAME="${PROJECT_NAME}-terraform-state-${AWS_ACCOUNT_ID}"
+DYNAMODB_TABLE="terraform-state-lock-${ENVIRONMENT}"
 
 echo "Setting up Terraform state resources in AWS..."
 echo "Using AWS Account: $AWS_ACCOUNT_ID"
