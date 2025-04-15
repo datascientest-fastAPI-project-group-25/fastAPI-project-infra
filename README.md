@@ -70,14 +70,14 @@ This repository contains the infrastructure code for the FastAPI project, organi
 
 ```bash
 # Create S3 bucket and DynamoDB table for Terraform state
-./setup-state.sh
+./scripts/utils/setup-state.sh
 ```
 
 ### Deploying with OIDC Authentication
 
 ```bash
 # Deploy infrastructure with OIDC authentication
-./deploy-with-oidc.sh
+./scripts/deployment/deploy-with-oidc.sh
 ```
 
 ### Staged Deployment
