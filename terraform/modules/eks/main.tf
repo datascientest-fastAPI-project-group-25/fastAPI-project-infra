@@ -23,25 +23,8 @@ module "eks" {
   create_cluster_security_group = true
   create_node_security_group    = true
 
-  # Attach additional security groups
-  node_security_group_additional_rules = {
-    ingress_self_all = {
-      description = "Node to node all ports/protocols"
-      protocol    = "-1"
-      from_port   = 0
-      to_port     = 0
-      type        = "ingress"
-      self        = true
-    }
-    egress_all = {
-      description = "Node all egress"
-      protocol    = "-1"
-      from_port   = 0
-      to_port     = 0
-      type        = "egress"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  }
+  # Use the security group from the security module
+  node_security_group_id = var.node_security_group_id
 
   # Node groups configuration
   eks_managed_node_groups = {

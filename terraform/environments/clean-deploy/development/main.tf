@@ -43,6 +43,7 @@ module "eks" {
     module.security.public_security_group_id,
     module.security.private_security_group_id
   ]
+  node_security_group_id = module.security.node_security_group_id
   cluster_version = var.eks_cluster_version
   instance_types  = var.eks_node_group_instance_types
   desired_size    = var.eks_node_group_desired_size

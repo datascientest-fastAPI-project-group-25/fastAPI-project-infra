@@ -30,6 +30,11 @@ variable "security_group_ids" {
   default     = []
 }
 
+variable "node_security_group_id" {
+  description = "ID of the security group for EKS nodes"
+  type        = string
+}
+
 variable "cluster_version" {
   description = "Kubernetes version to use for the EKS cluster"
   type        = string

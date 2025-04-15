@@ -1,5 +1,6 @@
 # Security Module
-# This module creates security groups for EKS access
+# This module creates security groups for EKS access, nodes, and other components
+
 # Create a public security group for EKS access
 resource "aws_security_group" "eks_public" {
   name        = "${var.project_name}-eks-public-${var.environment}"
@@ -64,4 +65,34 @@ resource "aws_security_group" "eks_private" {
   }
 }
 
+# Create a security group for EKS nodes
+resource "aws_security_group" "eks_nodes" {
+  name        = "${var.project_name}-eks-nodes-${var.environment}"
+  description = "Security group for EKS worker nodes"
+  vpc_id      = var.vpc_id
 
+  # Allow all traffic between nodes
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+    description = "Allow all traffic between nodes"
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic from nodes"
+  }
+
+  tags = {
+    Name        = "${var.project_name}-eks-nodes-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    Terraform   = "true"
+  }
+}
