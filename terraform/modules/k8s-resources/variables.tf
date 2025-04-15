@@ -1,7 +1,7 @@
 variable "namespace" {
   description = "Kubernetes namespace for the FastAPI application"
   type        = string
-  default     = "fastapi-helm"
+  default     = ""
 }
 
 variable "github_username" {

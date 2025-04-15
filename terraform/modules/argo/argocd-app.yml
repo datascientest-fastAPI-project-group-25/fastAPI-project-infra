@@ -5,11 +5,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: fastapi-app
+  name: fastapi-app-legacy
   namespace: argocd
 spec:
   destination:
-    namespace: fastapi-helm
+    namespace: fastapi-helm-legacy
     server: https://kubernetes.default.svc
   project: default
   source:

@@ -15,7 +15,7 @@ module "iam" {
 module "vpc" {
   source       = "../../../modules/vpc"
   aws_region   = var.aws_region
-  environment  = "dev2"
+  environment  = "dev"
   project_name = var.project_name
   vpc_cidr     = var.vpc_cidr
 }
@@ -24,7 +24,7 @@ module "vpc" {
 module "security" {
   source              = "../../../modules/security"
   vpc_id              = module.vpc.vpc_id
-  environment         = "dev2"
+  environment         = "dev"
   project_name        = var.project_name
   allowed_cidr_blocks = var.allowed_cidr_blocks
 
@@ -35,7 +35,7 @@ module "security" {
 module "eks" {
   source       = "../../../modules/eks"
   aws_region   = var.aws_region
-  environment  = "dev2"
+  environment  = "dev"
   project_name = var.project_name
   vpc_id       = module.vpc.vpc_id
   subnet_ids   = module.vpc.private_subnets
@@ -56,7 +56,7 @@ module "eks" {
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
-  environment     = "dev2"
+  environment     = "dev"
   github_username = var.github_username
   github_token    = var.github_token
   db_username     = var.db_username
@@ -71,7 +71,7 @@ module "k8s_resources" {
 # Deploy ArgoCD using our custom module
 module "argocd" {
   source                                 = "../../../modules/argo"
-  environment                            = "dev2"
+  environment                            = "dev"
   project_name                           = var.project_name
   eks_cluster_endpoint                   = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
@@ -86,7 +86,7 @@ module "argocd" {
 module "external_secrets" {
   source               = "../../../modules/external-secrets"
   project_name         = var.project_name
-  environment          = "dev2"
+  environment          = "dev"
   region               = var.aws_region
   eks_oidc_provider    = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
@@ -97,7 +97,7 @@ module "external_secrets" {
 # Configure GitHub Container Registry Access with OIDC
 module "ghcr_access" {
   source          = "../../../modules/ghcr-access"
-  environment     = "dev2"
+  environment     = "dev"
   github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token  # Kept as fallback

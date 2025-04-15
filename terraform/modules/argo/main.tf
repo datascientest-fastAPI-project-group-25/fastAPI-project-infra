@@ -23,14 +23,32 @@ resource "time_sleep" "wait_for_crds" {
   create_duration = "300s"
 }
 
+# Render the ApplicationSet template
+data "template_file" "application_set" {
+  template = file("${path.module}/templates/application-set.yml")
+  vars = {
+    environment     = var.environment
+    github_org      = var.github_org
+    release_repo    = var.release_repo
+    target_revision = "main"
+  }
+}
+
+# Save the rendered ApplicationSet template
+resource "local_file" "application_set" {
+  content  = data.template_file.application_set.rendered
+  filename = "${path.module}/rendered-application-set.yml"
+}
+
 # Deploy ArgoCD Application using kubectl
 resource "null_resource" "apply_argocd_app" {
   depends_on = [
     helm_release.argocd,
-    time_sleep.wait_for_crds
+    time_sleep.wait_for_crds,
+    local_file.application_set
   ]
 
   provisioner "local-exec" {
-    command = "kubectl apply -f ${path.module}/argocd-app.yml"
+    command = "kubectl apply -f ${path.module}/argocd-app.yml && kubectl apply -f ${path.module}/rendered-application-set.yml"
   }
 }

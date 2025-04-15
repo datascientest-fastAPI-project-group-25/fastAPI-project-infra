@@ -4,7 +4,7 @@
 # Create the namespace for the FastAPI application
 resource "kubernetes_namespace" "fastapi" {
   metadata {
-    name = var.namespace
+    name = var.namespace != "" ? var.namespace : "fastapi-helm-${var.environment}"
   }
 }
 
