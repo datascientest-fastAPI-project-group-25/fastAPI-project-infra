@@ -2,7 +2,14 @@
 
 terraform {
   # Using local backend for staging
-  backend "local" {}
+  #backend "local" {}
+  backend "s3" {
+    bucket         = "fastapi-project-terraform-state-575977136211"
+    key            = "fastapi/infra/staging/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock-dev"
+    encrypt        = true
+  }
 }
 
 # AWS provider configuration
@@ -141,6 +148,8 @@ module "external_secrets" {
 # Configure GitHub Container Registry Access
 module "ghcr_access" {
   source          = "../../../modules/ghcr-access"
+  environment     = "staging"
+  github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token
   eks_role_arn    = module.eks.worker_iam_role_arn

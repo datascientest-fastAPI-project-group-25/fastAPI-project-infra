@@ -2,7 +2,14 @@
 
 terraform {
   # Using local backend for production
-  backend "local" {}
+  #backend "local" {}
+  backend "s3" {
+    bucket         = "datascientest-terraform-state"
+    key            = "production.tfstate"
+    region         = var.aws_region
+    encrypt        = true
+    dynamodb_table = "datascientest-terraform-state-lock"
+  }
 }
 
 # AWS provider configuration
@@ -142,6 +149,8 @@ module "external_secrets" {
 # Configure GitHub Container Registry Access
 module "ghcr_access" {
   source          = "../../../modules/ghcr-access"
+  environment     = "production"
+  github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token
   eks_role_arn    = module.eks.worker_iam_role_arn
