@@ -29,7 +29,7 @@ module "argocd" {
 
 The ArgoCD configuration is defined in the `argocd-values.yml` file. Key configurations include:
 
-- **Admin Password**: Set to `admin123` in plain text
+- **Admin Password**: Set to `password` in plain text
 - **Service Type**: LoadBalancer for external access
 - **Insecure Mode**: Enabled for easier access (disable in production)
 - **Git Repository**: Configured to use the project's release repository
@@ -60,7 +60,7 @@ The ArgoCD configuration is defined in the `argocd-values.yml` file. Key configu
 
 3. Log in with:
    - Username: `admin`
-   - Password: `admin123`
+   - Password: `password`
 
 ## Troubleshooting
 
