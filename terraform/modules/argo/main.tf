@@ -40,7 +40,7 @@ resource "local_file" "application_set" {
   filename = "${path.module}/rendered-application-set.yml"
 }
 
-# Deploy ArgoCD Application using kubectl
+# Deploy ArgoCD ApplicationSet using kubectl
 resource "null_resource" "apply_argocd_app" {
   depends_on = [
     helm_release.argocd,
@@ -49,6 +49,6 @@ resource "null_resource" "apply_argocd_app" {
   ]
 
   provisioner "local-exec" {
-    command = "kubectl apply -f ${path.module}/argocd-app.yml && kubectl apply -f ${path.module}/rendered-application-set.yml"
+    command = "kubectl apply -f ${path.module}/rendered-application-set.yml"
   }
 }
