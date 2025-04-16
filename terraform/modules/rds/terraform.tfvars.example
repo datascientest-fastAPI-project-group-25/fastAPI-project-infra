@@ -1,0 +1,8 @@
+project_name    = "fastapi-project"
+environment     = "development"
+vpc_id          = "vpc-12345678"
+subnet_ids      = ["subnet-12345678", "subnet-23456789"]
+db_name         = "fastapi"
+db_username     = "admin"
+db_password     = "your-secure-password"
+instance_class  = "db.t3.small"
