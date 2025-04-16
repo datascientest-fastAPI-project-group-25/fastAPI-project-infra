@@ -143,3 +143,41 @@ resource "aws_iam_role_policy_attachment" "ecr_access" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.ecr_access.arn
 }
+
+# Create IAM policy for EKS access
+resource "aws_iam_policy" "eks_access" {
+  name        = "eks-access-${var.environment}"
+  description = "Policy for managing EKS clusters"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:*",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeVpcs",
+          "iam:GetRole",
+          "iam:ListRoles",
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "eks-access-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    Terraform   = "true"
+  }
+}
+
+# Attach EKS access policy to GitHub Actions role
+resource "aws_iam_role_policy_attachment" "eks_access" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.eks_access.arn
+}
