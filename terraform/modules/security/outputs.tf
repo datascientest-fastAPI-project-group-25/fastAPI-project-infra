@@ -8,3 +8,8 @@ output "private_security_group_id" {
   description = "ID of the EKS private security group"
   value       = aws_security_group.eks_private.id
 }
+
+output "node_security_group_id" {
+  description = "ID of the EKS node security group"
+  value       = aws_security_group.eks_private.id
+}

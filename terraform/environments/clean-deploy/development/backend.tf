@@ -1,7 +1,13 @@
 # Terraform backend and provider configuration
 terraform {
-  # Using local backend for development initially
-  backend "local" {}
+  # Using S3 backend for state management
+  backend "s3" {
+    bucket         = "fastapi-project-terraform-state-575977136211"
+    key            = "fastapi/infra/dev/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock-dev"
+    encrypt        = true
+  }
 
   required_providers {
     aws = {
