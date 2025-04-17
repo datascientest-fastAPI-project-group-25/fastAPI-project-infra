@@ -25,15 +25,15 @@ if [ $? -ne 0 ]; then
 fi
 
 # Change to the terraform directory
-cd terraform
+cd terraform/environments/clean-deploy/development
 
 # Initialize Terraform
 echo "Initializing Terraform..."
 terraform init -reconfigure -upgrade \
     -backend-config="bucket=fastapi-project-terraform-state-575977136211" \
-    -backend-config="key=fastapi/infra/terraform.tfstate" \
+    -backend-config="key=fastapi/infra/development/terraform.tfstate" \
     -backend-config="region=us-east-1" \
-    -backend-config="dynamodb_table=terraform-state-lock-test"
+    -backend-config="dynamodb_table=terraform-state-lock-dev"
 
 # Stage 1: Deploy VPC
 echo "Stage 1: Deploying VPC..."

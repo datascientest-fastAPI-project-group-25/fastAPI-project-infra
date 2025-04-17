@@ -59,3 +59,9 @@ variable "max_size" {
   type        = number
   default     = 3
 }
+
+variable "node_security_group_id" {
+  description = "ID of the security group to use for the EKS node group"
+  type        = string
+  default     = ""
+}

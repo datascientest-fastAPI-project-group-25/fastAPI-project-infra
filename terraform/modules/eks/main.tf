@@ -22,6 +22,7 @@ module "eks" {
   # Security groups
   create_cluster_security_group = true
   create_node_security_group    = true
+  node_security_group_id        = var.node_security_group_id
 
   # Attach additional security groups
   node_security_group_additional_rules = {

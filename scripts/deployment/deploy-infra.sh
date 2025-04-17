@@ -25,41 +25,38 @@ if [ $? -ne 0 ]; then
 fi
 
 # Change to the terraform directory
-cd terraform
+cd terraform/environments/clean-deploy/development
 
 # Initialize Terraform
 echo "Initializing Terraform..."
 terraform init -reconfigure -upgrade \
     -backend-config="bucket=fastapi-project-terraform-state-575977136211" \
-    -backend-config="key=fastapi/infra/terraform.tfstate" \
+    -backend-config="key=fastapi/infra/development/terraform.tfstate" \
     -backend-config="region=us-east-1" \
-    -backend-config="dynamodb_table=terraform-state-lock-test"
+    -backend-config="dynamodb_table=terraform-state-lock-dev"
 
-# Validate Terraform configuration
-echo "Validating Terraform configuration..."
-terraform validate
-
-if [ $? -ne 0 ]; then
-    echo "Error: Terraform validation failed"
-    exit 1
-fi
-
-# Plan Terraform changes
-echo "Planning Terraform changes..."
-terraform plan \
+# Deploy VPC
+echo "Deploying VPC..."
+terraform apply -target=module.vpc -auto-approve \
     -var="aws_region=us-east-1" \
-    -var="environment=dev" \
-    -out=tfplan
+    -var="environment=dev"
 
-# Ask for confirmation
-read -p "Do you want to apply these changes? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    # Apply Terraform changes
-    echo "Applying Terraform changes..."
-    terraform apply tfplan
-    
-    echo "Infrastructure deployed successfully!"
-else
-    echo "Deployment cancelled."
-fi
+# Deploy Security Groups
+echo "Deploying Security Groups..."
+terraform apply -target=module.security -auto-approve \
+    -var="aws_region=us-east-1" \
+    -var="environment=dev"
+
+# Deploy EKS
+echo "Deploying EKS..."
+terraform apply -target=module.eks -auto-approve \
+    -var="aws_region=us-east-1" \
+    -var="environment=dev"
+
+# Deploy ArgoCD
+echo "Deploying ArgoCD..."
+terraform apply -auto-approve \
+    -var="aws_region=us-east-1" \
+    -var="environment=dev"
+
+echo "Infrastructure deployed successfully!"
