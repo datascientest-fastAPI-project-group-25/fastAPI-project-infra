@@ -47,7 +47,7 @@ services:
       - "4566:4566"
       - "4571:4571"
     environment:
-      - SERVICES=s3,dynamodb
+      - SERVICES=s3,dynamodb,iam,ec2,eks,lambda,cloudwatch,logs,sts,secretsmanager
       - DEBUG=1
     volumes:
       - localstack-data:/var/lib/localstack
