@@ -7,10 +7,10 @@ output "service_account_names" {
 
 output "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC provider"
-  value       = aws_iam_openid_connect_provider.github.arn
+  value       = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github_existing[0].arn
 }
 
 output "github_actions_role_arn" {
   description = "ARN of the IAM role for GitHub Actions"
-  value       = aws_iam_role.github_actions.arn
+  value       = var.create_github_actions_role ? aws_iam_role.github_actions[0].arn : data.aws_iam_role.github_actions_existing[0].arn
 }

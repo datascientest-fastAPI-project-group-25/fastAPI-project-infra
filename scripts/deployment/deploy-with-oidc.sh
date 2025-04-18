@@ -36,7 +36,24 @@ ACTUAL_ACCOUNT_ID=$(echo "$CALLER_IDENTITY" | grep -o '"Account": "[0-9]*"' | cu
 # Verify that we're using the correct AWS account
 if [ "$ACTUAL_ACCOUNT_ID" != "$AWS_ACCOUNT_ID" ]; then
     echo "Error: AWS account ID mismatch. Expected $AWS_ACCOUNT_ID but got $ACTUAL_ACCOUNT_ID"
-    exit 1
+    echo "Configuring AWS CLI to use the correct credentials..."
+
+    # Configure AWS CLI to use these credentials
+    aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    aws configure set region $AWS_DEFAULT_REGION
+
+    # Verify configuration again
+    echo "Verifying AWS credentials after reconfiguration..."
+    CALLER_IDENTITY=$(aws sts get-caller-identity)
+    ACTUAL_ACCOUNT_ID=$(echo "$CALLER_IDENTITY" | grep -o '"Account": "[0-9]*"' | cut -d\" -f4)
+
+    if [ "$ACTUAL_ACCOUNT_ID" != "$AWS_ACCOUNT_ID" ]; then
+        echo "Error: AWS account ID still mismatched after reconfiguration. Expected $AWS_ACCOUNT_ID but got $ACTUAL_ACCOUNT_ID"
+        exit 1
+    fi
+
+    echo "AWS credentials reconfigured successfully"
 fi
 
 # Change to the terraform directory
@@ -100,6 +117,25 @@ EOF
 # Migrate state to S3
 echo "Migrating state to S3..."
 terraform init -reconfigure -backend-config=backend.config
+
+# Auto-unlock stale Terraform state lock
+echo "Checking for stale Terraform state lock..."
+PLAN_OUT=$(terraform plan -no-color 2>&1) || true
+if echo "$PLAN_OUT" | grep -q 'Error acquiring the state lock'; then
+  # Try multiple patterns to extract the lock ID
+  LOCK_ID=$(echo "$PLAN_OUT" | grep -o 'ID: [a-zA-Z0-9\-]*' | cut -d' ' -f2)
+  if [ -z "$LOCK_ID" ]; then
+    LOCK_ID=$(echo "$PLAN_OUT" | sed -nE 's/^[[:space:]]*ID:[[:space:]]*([[:alnum:]-]+)$/\1/p')
+  fi
+
+  if [ -n "$LOCK_ID" ]; then
+    echo "Stale lock detected (ID=$LOCK_ID), forcing unlock..."
+    terraform force-unlock -force "$LOCK_ID"
+  else
+    echo "Failed to parse LOCK_ID"
+    exit 1
+  fi
+fi
 
 # Check if we need to modify providers.tf to handle EKS cluster creation
 if grep -q "data.aws_eks_cluster.cluster" providers.tf; then

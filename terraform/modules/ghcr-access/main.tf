@@ -1,14 +1,23 @@
 # GitHub Container Registry Access Module
 # This module sets up OIDC authentication with GitHub for pulling images from GitHub Container Registry
 
-# Create IAM OIDC Provider for GitHub
+# Data source to check if GitHub OIDC provider already exists
+data "aws_iam_openid_connect_provider" "github_existing" {
+  # Use a count to make this data source conditional
+  count = var.create_github_oidc_provider ? 0 : 1
+  url   = "https://token.actions.githubusercontent.com"
+}
+
+# Create IAM OIDC Provider for GitHub only if it doesn't exist
 resource "aws_iam_openid_connect_provider" "github" {
+  # Only create if the create_github_oidc_provider variable is true
+  count           = var.create_github_oidc_provider ? 1 : 0
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   # GitHub's OIDC thumbprint - this is the certificate thumbprint for GitHub's OIDC provider
   # This should be updated if GitHub rotates their certificates
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-  
+
   tags = {
     Name        = "github-oidc-provider"
     Environment = var.environment
@@ -16,9 +25,18 @@ resource "aws_iam_openid_connect_provider" "github" {
   }
 }
 
+# Data source to check if GitHub Actions role already exists
+data "aws_iam_role" "github_actions_existing" {
+  # Use a count to make this data source conditional
+  count = var.create_github_actions_role ? 0 : 1
+  name  = "github-actions-${var.environment}"
+}
+
 # Create IAM Role for GitHub OIDC
 resource "aws_iam_role" "github_actions" {
-  name = "github-actions-${var.environment}"
+  # Only create if the create_github_actions_role variable is true
+  count       = var.create_github_actions_role ? 1 : 0
+  name        = "github-actions-${var.environment}"
   description = "IAM role for GitHub Actions OIDC authentication for ${var.environment} environment"
 
   # This trust policy allows GitHub Actions to assume this role using OIDC
@@ -30,7 +48,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github_existing[0].arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -98,7 +116,7 @@ resource "aws_iam_policy" "github_ecr_policy" {
 
 # Attach policy to role
 resource "aws_iam_role_policy_attachment" "github_ecr_attachment" {
-  role       = aws_iam_role.github_actions.name
+  role       = var.create_github_actions_role ? aws_iam_role.github_actions[0].name : data.aws_iam_role.github_actions_existing[0].name
   policy_arn = aws_iam_policy.github_ecr_policy.arn
 }
 
@@ -113,7 +131,7 @@ resource "kubernetes_service_account" "ghcr_service_account" {
     annotations = {
       # This annotation links the service account to the IAM role
       # It enables IAM Roles for Service Accounts (IRSA) in EKS
-      "eks.amazonaws.com/role-arn" = aws_iam_role.github_actions.arn
+      "eks.amazonaws.com/role-arn" = var.create_github_actions_role ? aws_iam_role.github_actions[0].arn : data.aws_iam_role.github_actions_existing[0].arn
     }
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"

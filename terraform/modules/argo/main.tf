@@ -23,14 +23,17 @@ resource "time_sleep" "wait_for_crds" {
   create_duration = "300s"
 }
 
-# Deploy ArgoCD Application using kubectl
-resource "null_resource" "apply_argocd_app" {
+# Deploy ArgoCD Application using Kubernetes provider
+resource "kubernetes_manifest" "argocd_application" {
   depends_on = [
     helm_release.argocd,
     time_sleep.wait_for_crds
   ]
 
-  provisioner "local-exec" {
-    command = "kubectl apply -f ${path.module}/argocd-app.yml"
+  manifest = yamldecode(file("${path.module}/argocd-app.yml"))
+
+  field_manager {
+    # Set force conflicts to true to override any conflicts with other controllers
+    force_conflicts = true
   }
 }

@@ -35,3 +35,15 @@ variable "github_org" {
   description = "GitHub organization or username"
   type        = string
 }
+
+variable "create_github_oidc_provider" {
+  description = "Whether to create the GitHub OIDC provider (set to false if it already exists)"
+  type        = bool
+  default     = false
+}
+
+variable "create_github_actions_role" {
+  description = "Whether to create the GitHub Actions IAM role (set to false if it already exists)"
+  type        = bool
+  default     = false
+}
