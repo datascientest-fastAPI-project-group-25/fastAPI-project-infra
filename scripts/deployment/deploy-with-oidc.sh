@@ -2,14 +2,19 @@
 
 # Script to deploy infrastructure using OIDC authentication
 
+# Unset any existing AWS environment variables
+unset AWS_ACCESS_KEY_ID
+unset AWS_SECRET_ACCESS_KEY
+unset AWS_SESSION_TOKEN
+unset AWS_PROFILE
+
 # Set environment variables
-export AWS_DEFAULT_REGION=us-east-1
-# Get AWS account ID from environment or .env file
-if [ -z "$AWS_ACCOUNT_ID" ]; then
-  export AWS_ACCOUNT_ID=$(grep AWS_ACCOUNT_ID .env | cut -d= -f2 || echo "221082192409")
-fi
-export PROJECT_NAME=fastapi-project
-export ENVIRONMENT=${ENVIRONMENT:-dev}
+export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID .env | cut -d= -f2)
+export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY .env | cut -d= -f2)
+export AWS_DEFAULT_REGION=$(grep AWS_DEFAULT_REGION .env | cut -d= -f2 || echo "us-east-1")
+export AWS_ACCOUNT_ID=$(grep AWS_ACCOUNT_ID .env | cut -d= -f2 || echo "221082192409")
+export PROJECT_NAME=$(grep PROJECT_NAME .env | cut -d= -f2 || echo "fastapi-project")
+export ENVIRONMENT=$(grep ENVIRONMENT .env | cut -d= -f2 || echo "dev")
 
 echo "Deploying infrastructure to AWS using OIDC authentication..."
 echo "Using AWS Account: $AWS_ACCOUNT_ID"
@@ -17,10 +22,20 @@ echo "Using AWS Region: $AWS_DEFAULT_REGION"
 
 # Verify AWS credentials
 echo "Verifying AWS credentials..."
-aws sts get-caller-identity
+CALLER_IDENTITY=$(aws sts get-caller-identity)
+echo "$CALLER_IDENTITY"
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to verify AWS credentials"
+    exit 1
+fi
+
+# Extract the AWS account ID from the caller identity
+ACTUAL_ACCOUNT_ID=$(echo "$CALLER_IDENTITY" | grep -o '"Account": "[0-9]*"' | cut -d\" -f4)
+
+# Verify that we're using the correct AWS account
+if [ "$ACTUAL_ACCOUNT_ID" != "$AWS_ACCOUNT_ID" ]; then
+    echo "Error: AWS account ID mismatch. Expected $AWS_ACCOUNT_ID but got $ACTUAL_ACCOUNT_ID"
     exit 1
 fi
 
