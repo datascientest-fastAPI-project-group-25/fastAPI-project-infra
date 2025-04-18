@@ -1,9 +1,6 @@
 # Production Environment Configuration
 
-terraform {
-  # Using local backend for production
-  backend "local" {}
-}
+# Production Environment Configuration
 
 # AWS provider configuration
 provider "aws" {
@@ -141,6 +138,8 @@ module "external_secrets" {
 # Configure GitHub Container Registry Access
 module "ghcr_access" {
   source          = "../../../modules/ghcr-access"
+  environment     = "production"
+  github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token
   eks_role_arn    = module.eks.worker_iam_role_arn
