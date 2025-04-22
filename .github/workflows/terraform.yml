@@ -7,13 +7,31 @@ on:
       - development
       - 'fix/**'
       - 'feat/**'
+    paths:
+      - '**.tf'
+      - '.github/workflows/**'
+    paths-ignore:
+      - 'bootstrap/**'
+      - 'terraform/modules/terraform-state/**'
+      - 'terraform/modules/logging/**'
+      - 'terraform/modules/security/**'
   pull_request:
     branches:
       - main    
     paths:
       - '**.tf'
       - '.github/workflows/**'
+    paths-ignore:
+      - 'bootstrap/**'
+      - 'terraform/modules/terraform-state/**'
+      - 'terraform/modules/logging/**'
+      - 'terraform/modules/security/**'
   workflow_dispatch:
+
+# Prevent parallel deployments for same environment
+concurrency:
+  group: terraform-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   id-token: write
