@@ -7,9 +7,6 @@ on:
       - development
       - 'fix/**'
       - 'feat/**'
-    paths:
-      - '**.tf'
-      - '.github/workflows/**'
     paths-ignore:
       - 'bootstrap/**'
       - 'terraform/modules/terraform-state/**'
@@ -18,9 +15,6 @@ on:
   pull_request:
     branches:
       - main    
-    paths:
-      - '**.tf'
-      - '.github/workflows/**'
     paths-ignore:
       - 'bootstrap/**'
       - 'terraform/modules/terraform-state/**'
@@ -45,7 +39,20 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set_env.outputs.environment }}
+      cache_key: ${{ steps.cache_key.outputs.hash }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate cache key
+        id: cache_key
+        run: |
+          # Create hash from terraform files and workflow
+          HASH=$(find . -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -exec sha256sum {} \; | sha256sum | cut -d ' ' -f1)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
       - name: Set environment based on branch
         id: set_env
         run: |
@@ -73,18 +80,58 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
+      # Cache Terraform CLI installation
+      - name: Cache Terraform CLI
+        uses: actions/cache@v4
+        id: cache-terraform
+        with:
+          path: /usr/local/bin/terraform
+          key: terraform-1.5.7
+          restore-keys: |
+            terraform-1.5
+
+      # Only install Terraform if not cached
+      - name: Setup Terraform
+        if: steps.cache-terraform.outputs.cache-hit != 'true'
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      # Cache AWS CLI installation
+      - name: Cache AWS CLI
+        uses: actions/cache@v4
+        id: cache-aws
+        with:
+          path: ~/.aws/cli
+          key: aws-cli-2.x
+          restore-keys: |
+            aws-cli-
+
+      # Configure AWS credentials (no caching needed as it's quick)
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::575977136211:role/github-actions-dev
           aws-region: us-east-1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      # Cache Terraform providers and modules
+      - name: Cache Terraform providers and modules
+        uses: actions/cache@v4
         with:
-          terraform_version: 1.5.7
+          path: |
+            **/.terraform
+            ~/.terraform.d/plugin-cache
+          key: terraform-deps-${{ needs.determine_environment.outputs.cache_key }}
+          restore-keys: |
+            terraform-deps-
+
+      - name: Cache Terraform plan
+        uses: actions/cache@v4
+        with:
+          path: tfplan
+          key: terraform-plan-${{ needs.determine_environment.outputs.cache_key }}
 
       - name: Validate AWS credentials
         run: |
@@ -98,68 +145,27 @@ jobs:
           cd terraform
           terraform fmt -check -recursive
 
-      - name: Terraform Init - Development
-        if: needs.determine_environment.outputs.environment == 'development'
+      - name: Terraform Init - ${{ needs.determine_environment.outputs.environment }}
         run: |
-          cd terraform/environments/clean-deploy/development
+          cd terraform/environments/clean-deploy/${{ needs.determine_environment.outputs.environment }}
           terraform init \
             -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-            -backend-config="key=fastapi/infra/dev/terraform.tfstate" \
+            -backend-config="key=fastapi/infra/${{ needs.determine_environment.outputs.environment }}/terraform.tfstate" \
             -backend-config="region=${AWS_DEFAULT_REGION}" \
             -backend-config="dynamodb_table=terraform-state-lock-dev"
 
-      - name: Terraform Init - Staging
-        if: needs.determine_environment.outputs.environment == 'staging'
+      - name: Terraform Plan - ${{ needs.determine_environment.outputs.environment }}
         run: |
-          cd terraform/environments/clean-deploy/staging
-          terraform init \
-            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-            -backend-config="key=fastapi/infra/staging/terraform.tfstate" \
-            -backend-config="region=${AWS_DEFAULT_REGION}" \
-            -backend-config="dynamodb_table=terraform-state-lock-dev"
-
-      - name: Terraform Init - Production
-        if: needs.determine_environment.outputs.environment == 'production'
-        run: |
-          cd terraform/environments/clean-deploy/production
-          terraform init \
-            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-            -backend-config="key=fastapi/infra/prod/terraform.tfstate" \
-            -backend-config="region=${AWS_DEFAULT_REGION}" \
-            -backend-config="dynamodb_table=terraform-state-lock-dev"
-
-      - name: Terraform Plan - Development
-        if: needs.determine_environment.outputs.environment == 'development'
-        run: |
-          cd terraform/environments/clean-deploy/development
+          cd terraform/environments/clean-deploy/${{ needs.determine_environment.outputs.environment }}
           terraform plan -var-file=terraform.tfvars -out=tfplan
 
-      - name: Terraform Plan - Staging
-        if: needs.determine_environment.outputs.environment == 'staging'
+      - name: Terraform Apply - ${{ needs.determine_environment.outputs.environment }}
+        if: |
+          github.event_name == 'push' && (
+            (needs.determine_environment.outputs.environment == 'development' && (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/fix/') || startsWith(github.ref, 'refs/heads/feat/'))) ||
+            (needs.determine_environment.outputs.environment == 'staging' && github.ref == 'refs/heads/development') ||
+            (needs.determine_environment.outputs.environment == 'production' && github.ref == 'refs/heads/main')
+          )
         run: |
-          cd terraform/environments/clean-deploy/staging
-          terraform plan -var-file=terraform.tfvars -out=tfplan
-
-      - name: Terraform Plan - Production
-        if: needs.determine_environment.outputs.environment == 'production'
-        run: |
-          cd terraform/environments/clean-deploy/production
-          terraform plan -var-file=terraform.tfvars -out=tfplan
-
-      - name: Terraform Apply - Development
-        if: needs.determine_environment.outputs.environment == 'development' && (github.ref == 'refs/heads/development' || startsWith(github.ref, 'refs/heads/fix/') || startsWith(github.ref, 'refs/heads/feat/')) && github.event_name == 'push'
-        run: |
-          cd terraform/environments/clean-deploy/development
-          terraform apply -var-file=terraform.tfvars -auto-approve
-
-      - name: Terraform Apply - Staging
-        if: needs.determine_environment.outputs.environment == 'staging' && github.ref == 'refs/heads/development' && github.event_name == 'push'
-        run: |
-          cd terraform/environments/clean-deploy/staging
-          terraform apply -var-file=terraform.tfvars -auto-approve
-
-      - name: Terraform Apply - Production
-        if: needs.determine_environment.outputs.environment == 'production' && github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          cd terraform/environments/clean-deploy/production
+          cd terraform/environments/clean-deploy/${{ needs.determine_environment.outputs.environment }}
           terraform apply -var-file=terraform.tfvars -auto-approve

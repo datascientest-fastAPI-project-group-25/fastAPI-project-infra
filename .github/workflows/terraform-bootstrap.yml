@@ -7,11 +7,7 @@
 #
 # Trigger Conditions:
 # 1. Push to branches matching 'bootstrap/*'
-# 2. Changes to bootstrap-related paths:
-#    - bootstrap/**
-#    - terraform/modules/terraform-state/**
-#    - terraform/modules/logging/**
-#    - terraform/modules/security/**
+# 2. Pull requests targeting main that modify bootstrap-related files
 # 3. Manual trigger via workflow_dispatch
 #
 # Security Note:
@@ -24,12 +20,6 @@ on:
   push:
     branches:
       - 'bootstrap/**'
-    paths:
-      - 'bootstrap/**'
-      - 'terraform/modules/terraform-state/**'
-      - 'terraform/modules/logging/**'
-      - 'terraform/modules/security/**'
-      - '.github/workflows/terraform-bootstrap.yml'
   pull_request:
     branches:
       - main
@@ -58,14 +48,30 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       bootstrap_needed: ${{ steps.check.outputs.bootstrap_needed }}
+      cache_key: ${{ steps.cache_key.outputs.hash }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Generate cache key
+        id: cache_key
+        run: |
+          # Create hash from bootstrap files and workflow
+          HASH=$(find bootstrap terraform/modules -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -exec sha256sum {} \; | sha256sum | cut -d ' ' -f1)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
       - name: Check for relevant changes
         id: check
         run: |
+          # If triggered by bootstrap/* branch push, always run
+          if [[ "${{ github.ref }}" == refs/heads/bootstrap/* ]]; then
+            echo "Changes from bootstrap branch, requiring bootstrap"
+            echo "bootstrap_needed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For other triggers, check changed files
           git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed_files.txt
           
           # Check if any bootstrap-related files were modified
@@ -98,17 +104,58 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Cache Terraform CLI installation
+      - name: Cache Terraform CLI
+        uses: actions/cache@v4
+        id: cache-terraform
+        with:
+          path: /usr/local/bin/terraform
+          key: terraform-1.5.7
+          restore-keys: |
+            terraform-1.5
+
+      # Only install Terraform if not cached
       - name: Setup Terraform
+        if: steps.cache-terraform.outputs.cache-hit != 'true'
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
+      # Cache AWS CLI installation
+      - name: Cache AWS CLI
+        uses: actions/cache@v4
+        id: cache-aws
+        with:
+          path: ~/.aws/cli
+          key: aws-cli-2.x
+          restore-keys: |
+            aws-cli-
+
+      # Configure AWS credentials
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
+      # Cache Terraform providers and modules
+      - name: Cache Terraform providers and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/.terraform
+            ~/.terraform.d/plugin-cache
+          key: terraform-bootstrap-deps-${{ needs.check-changes.outputs.cache_key }}
+          restore-keys: |
+            terraform-bootstrap-deps-
+
+      # Cache Terraform plan
+      - name: Cache Terraform plan
+        uses: actions/cache@v4
+        with:
+          path: tfplan
+          key: terraform-bootstrap-plan-${{ needs.check-changes.outputs.cache_key }}
 
       - name: Check if FastAPIProjectBootstrapInfraRole exists
         id: check_role
@@ -154,17 +201,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Reuse cached Terraform CLI
+      - name: Cache Terraform CLI
+        uses: actions/cache@v4
+        id: cache-terraform
+        with:
+          path: /usr/local/bin/terraform
+          key: terraform-1.5.7
+          restore-keys: |
+            terraform-1.5
+
+      # Only install Terraform if not cached
       - name: Setup Terraform
+        if: steps.cache-terraform.outputs.cache-hit != 'true'
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
+      # Configure AWS credentials
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
+      # Reuse cached providers and modules
+      - name: Cache Terraform providers and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/.terraform
+            ~/.terraform.d/plugin-cache
+          key: terraform-bootstrap-deps-${{ needs.check-changes.outputs.cache_key }}
 
       - name: Initialize Terraform
         working-directory: ./bootstrap/environments/aws
@@ -175,8 +244,8 @@ jobs:
             -backend-config="bucket=${BUCKET_NAME}"
 
       - name: Plan and Apply Changes
-        working-directory: ./bootstrap/environments/aws
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/bootstrap/')
+        working-directory: ./bootstrap/environments/aws
         run: |
           terraform plan -out=tfplan
           terraform apply -auto-approve tfplan

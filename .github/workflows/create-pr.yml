@@ -1,4 +1,4 @@
-name: PR Creation - with Machine User Token
+name: PR Creation & Update - with Machine User Token
 # This workflow creates a pull request from a feature or fix branch to the main branch 🚀
 
 on:
