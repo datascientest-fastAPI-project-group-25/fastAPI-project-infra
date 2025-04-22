@@ -10,8 +10,10 @@ resource "kubernetes_namespace" "fastapi" {
 
 # Create a secret for GitHub Container Registry credentials
 resource "kubernetes_secret" "ghcr_secret" {
+  count = var.github_username != "" && var.github_token != "" ? 1 : 0
+
   metadata {
-    name      = "ghcr-secret"
+    name      = "ghcr-legacy-secret"  # Renamed to avoid conflict with new ghcr-secret module
     namespace = kubernetes_namespace.fastapi.metadata[0].name
   }
 
@@ -33,11 +35,21 @@ resource "kubernetes_secret" "db_secret" {
   metadata {
     name      = "db-secret"
     namespace = kubernetes_namespace.fastapi.metadata[0].name
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "environment"                  = var.environment
+    }
   }
 
-  data = {
-    username = var.db_username
-    password = var.db_password
-    database = var.db_name
-  }
+  data = merge(
+    {
+      username = var.db_username
+      password = var.db_password
+      database = var.db_name
+    },
+    var.use_external_db ? {
+      host = var.db_host
+      port = tostring(var.db_port)
+    } : {}
+  )
 }

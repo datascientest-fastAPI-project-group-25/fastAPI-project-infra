@@ -1,11 +1,9 @@
 # Staging Environment Configuration
 
 terraform {
-  # Using local backend for staging
   backend "local" {}
 }
 
-# AWS provider configuration
 provider "aws" {
   region = var.aws_region
 }
@@ -55,22 +53,21 @@ module "eks" {
 module "rds" {
   source                 = "../../../modules/rds"
   project_name           = var.project_name
-  environment            = "staging"
-  vpc_id                 = module.vpc.vpc_id
-  db_subnet_group_name   = module.vpc.db_subnet_group_name
+  environment           = "staging"
+  vpc_id                = module.vpc.vpc_id
+  db_subnet_group_name  = module.vpc.db_subnet_group_name
   eks_security_group_ids = [module.security.private_security_group_id]
-  rds_security_group_id  = module.security.rds_security_group_id
-  db_username            = var.db_username
-  db_password            = var.db_password
-  db_name                = var.db_name
-  instance_class         = var.rds_instance_class
-  allocated_storage      = var.rds_allocated_storage
-  max_allocated_storage  = var.rds_max_allocated_storage
+  rds_security_group_id = module.security.rds_security_group_id
+  db_username           = var.db_username
+  db_password           = var.db_password
+  db_name               = var.db_name
+  instance_class        = var.rds_instance_class
+  allocated_storage     = var.rds_allocated_storage
+  max_allocated_storage = var.rds_max_allocated_storage
 
   depends_on = [module.vpc, module.security]
 }
 
-# Configure Kubernetes provider with EKS cluster details
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
@@ -81,7 +78,6 @@ provider "kubernetes" {
   }
 }
 
-# Configure Helm provider with EKS cluster details
 provider "helm" {
   kubernetes {
     host                   = module.eks.cluster_endpoint
@@ -94,16 +90,30 @@ provider "helm" {
   }
 }
 
+# Configure GHCR authentication for pulling images
+module "ghcr_auth" {
+  source = "../../../modules/ghcr-secret"
+  environment = "staging"
+  namespaces = ["fastapi-helm-stg"]  # Match k8s_resources namespace
+  github_org = var.github_org
+  machine_user_token_secret_name = "github/machine-user-token"
+
+  depends_on = [module.eks]
+}
+
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
   environment     = "staging"
+  namespace       = "fastapi-helm-stg"  # Keep namespace consistent
   github_username = var.github_username
   github_token    = var.github_token
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
   use_external_db = true
+  db_host         = module.rds.db_instance_address  # Add RDS connection details
+  db_port         = module.rds.db_instance_port     # Add RDS connection details
 
   depends_on = [module.eks, module.rds]
 }
@@ -142,18 +152,7 @@ module "github_actions_oidc" {
   github_username = var.github_username
   github_token    = var.github_token
   eks_role_arn    = module.eks.worker_iam_role_arn
-  namespaces      = ["fastapi-helm-stg"]  # Match the namespace where the app runs
-
-  depends_on = [module.eks]
-}
-
-# Configure GHCR authentication for pulling images
-module "ghcr_secret" {
-  source = "../../../modules/ghcr-secret"
-  environment = "staging"
-  namespaces = ["fastapi-helm-stg"]  # Namespace used by ArgoCD for staging
-  github_org = var.github_org
-  machine_user_token_secret_name = "github/machine-user-token"
+  namespaces      = ["fastapi-helm-stg"]  # Match k8s_resources namespace
 
   depends_on = [module.eks]
 }

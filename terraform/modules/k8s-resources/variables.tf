@@ -1,7 +1,6 @@
 variable "namespace" {
   description = "Kubernetes namespace for the FastAPI application"
   type        = string
-  default     = "fastapi-helm"
 }
 
 variable "github_username" {
@@ -44,4 +43,16 @@ variable "use_external_db" {
   description = "Whether to use an external database (RDS) or in-cluster PostgreSQL"
   type        = bool
   default     = false
+}
+
+variable "db_host" {
+  description = "External database host (used when use_external_db is true)"
+  type        = string
+  default     = ""
+}
+
+variable "db_port" {
+  description = "External database port (used when use_external_db is true)"
+  type        = number
+  default     = 5432
 }
