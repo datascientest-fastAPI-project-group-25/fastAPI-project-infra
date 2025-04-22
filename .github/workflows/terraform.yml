@@ -109,11 +109,11 @@ jobs:
           restore-keys: |
             aws-cli-
 
-      # Configure AWS credentials (no caching needed as it's quick)
+      # Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::575977136211:role/github-actions-dev
+          role-to-assume: arn:aws:iam::575977136211:role/github-actions-${{ needs.determine_environment.outputs.environment }}
           aws-region: us-east-1
 
       # Cache Terraform providers and modules
