@@ -103,10 +103,7 @@ module "k8s_resources" {
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
-  # Using external RDS for staging
   use_external_db = true
-  db_host         = module.rds.db_instance_address
-  db_port         = module.rds.db_instance_port
 
   depends_on = [module.eks, module.rds]
 }
@@ -137,12 +134,26 @@ module "external_secrets" {
   depends_on = [module.eks]
 }
 
-# Configure GitHub Container Registry Access
-module "ghcr_access" {
-  source          = "../../../modules/ghcr-access"
+# Configure GitHub Actions OIDC
+module "github_actions_oidc" {
+  source          = "../../../modules/github-actions-oidc"
+  environment     = "staging"
+  github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token
   eks_role_arn    = module.eks.worker_iam_role_arn
+  namespaces      = ["fastapi-helm-stg"]  # Match the namespace where the app runs
 
-  depends_on = [module.eks, module.k8s_resources]
+  depends_on = [module.eks]
+}
+
+# Configure GHCR authentication for pulling images
+module "ghcr_secret" {
+  source = "../../../modules/ghcr-secret"
+  environment = "staging"
+  namespaces = ["fastapi-helm-stg"]  # Namespace used by ArgoCD for staging
+  github_org = var.github_org
+  machine_user_token_secret_name = "github/machine-user-token"
+
+  depends_on = [module.eks]
 }
