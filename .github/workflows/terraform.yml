@@ -168,7 +168,7 @@ jobs:
         run: |
           for env in stg prod; do
             echo "Planning changes for $env environment..."
-            cd terraform/environments/clean-deploy/$env
+            cd terraform/environments/deploy/$env
             terraform init \
               -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
               -backend-config="key=fastapi/infra/$env/terraform.tfstate" \
@@ -182,7 +182,7 @@ jobs:
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          cd terraform/environments/clean-deploy/prod
+          cd terraform/environments/deploy/prod
           terraform init \
             -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
             -backend-config="key=fastapi/infra/prod/terraform.tfstate" \
@@ -202,7 +202,7 @@ jobs:
             let comment = '## Terraform Plan Output\n\n';
             
             for (const env of ['stg', 'prod']) {
-              const planPath = `terraform/environments/clean-deploy/${env}/${env}.tfplan`;
+              const planPath = `terraform/environments/deploy/${env}/${env}.tfplan`;
               if (fs.existsSync(planPath)) {
                 comment += `### ${env.toUpperCase()} Environment\n\`\`\`hcl\n`;
                 comment += fs.readFileSync(planPath, 'utf8');

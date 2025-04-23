@@ -13,7 +13,7 @@ variable "project_name" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
-  default     = "10.2.0.0/16" # Different CIDR for production
+  default     = "10.1.0.0/16" # Different CIDR for staging
 }
 
 variable "allowed_cidr_blocks" {
@@ -31,25 +31,25 @@ variable "eks_cluster_version" {
 variable "eks_node_group_instance_types" {
   description = "Instance types for the EKS node group"
   type        = list(string)
-  default     = ["t3.large"] # Larger instances for production
+  default     = ["t3.medium"] # Medium instances for staging
 }
 
 variable "eks_node_group_desired_size" {
   description = "Desired size of the EKS node group"
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "eks_node_group_min_size" {
   description = "Minimum size of the EKS node group"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "eks_node_group_max_size" {
   description = "Maximum size of the EKS node group"
   type        = number
-  default     = 6
+  default     = 4
 }
 
 variable "github_username" {
@@ -84,19 +84,19 @@ variable "db_name" {
 variable "rds_instance_class" {
   description = "Instance class for the RDS instance"
   type        = string
-  default     = "db.t3.medium" # Larger instance for production
+  default     = "db.t3.micro" # Smaller instance for staging
 }
 
 variable "rds_allocated_storage" {
   description = "Allocated storage in GB for RDS"
   type        = number
-  default     = 20 # More storage for production
+  default     = 10 # Less storage for staging
 }
 
 variable "rds_max_allocated_storage" {
   description = "Maximum allocated storage in GB for RDS autoscaling"
   type        = number
-  default     = 100 # More max storage for production
+  default     = 50 # Less max storage for staging
 }
 
 variable "github_org" {
@@ -109,4 +109,10 @@ variable "release_repo" {
   description = "Release repository name"
   type        = string
   default     = "fastAPI-project-release"
+}
+
+variable "github_repo" {
+  description = "Full GitHub repository path (e.g., org-name/repo-name)"
+  type        = string
+  default     = "datascientest-fastAPI-project-group-25/fastAPI-project-infra"
 }
