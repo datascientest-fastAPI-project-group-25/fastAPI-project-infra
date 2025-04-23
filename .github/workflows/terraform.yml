@@ -88,6 +88,9 @@ jobs:
 
       # Print GitHub context and OIDC token details
       - name: Debug OIDC Claims
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           echo "Event name: ${{ github.event_name }}"
           echo "Actor: ${{ github.actor }}"
@@ -95,7 +98,16 @@ jobs:
           echo "Ref: ${{ github.ref }}"
           echo "SHA: ${{ github.sha }}"
           echo "Workflow: ${{ github.workflow }}"
-          curl -H "Authorization: bearer ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}" "${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}&audience=sts.amazonaws.com" | jq .value | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
+          TOKEN=$(curl -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
+          echo "Token payload:"
+          echo $TOKEN | jq -r '.value' | cut -d'.' -f2 | base64 -d | jq .
+
+      # Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::575977136211:role/github-actions-${{ needs.determine_environment.outputs.environment }}
+          aws-region: us-east-1
 
       # Cache Terraform CLI installation
       - name: Cache Terraform CLI
@@ -123,13 +135,6 @@ jobs:
           key: aws-cli-2.x
           restore-keys: |
             aws-cli-
-
-      # Configure AWS credentials
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::575977136211:role/github-actions-${{ needs.determine_environment.outputs.environment }}
-          aws-region: us-east-1
 
       # Cache Terraform providers and modules
       - name: Cache Terraform providers and modules
