@@ -1,10 +1,26 @@
 #!/bin/bash
 
 # Set environment variables
-export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID .env | cut -d= -f2)
-export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY .env | cut -d= -f2)
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-221082192409}
+
+# Check if AWS_ACCOUNT_ID is set
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+    echo "Error: AWS_ACCOUNT_ID environment variable is not set."
+    echo "Please set it before running this script:"
+    echo "export AWS_ACCOUNT_ID=your_aws_account_id"
+    exit 1
+fi
+
+# Check if AWS credentials are available (from environment or IAM role)
+aws sts get-caller-identity &>/dev/null
+if [ $? -ne 0 ]; then
+    echo "Error: AWS credentials are not available or are invalid."
+    echo "Please configure AWS credentials using one of these methods:"
+    echo "1. Set up AWS CLI with 'aws configure'"
+    echo "2. Use IAM roles for EC2 instances or EKS clusters"
+    echo "3. Use OIDC authentication for GitHub Actions"
+    exit 1
+fi
 export PROJECT_NAME=fastapi-project
 export ENVIRONMENT=dev
 

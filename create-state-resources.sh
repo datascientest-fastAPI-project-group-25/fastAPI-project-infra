@@ -4,7 +4,13 @@
 
 # Set environment variables
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-221082192409}
+# Check if AWS_ACCOUNT_ID is set
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+    echo "Error: AWS_ACCOUNT_ID environment variable is not set."
+    echo "Please set it before running this script:"
+    echo "export AWS_ACCOUNT_ID=your_aws_account_id"
+    exit 1
+fi
 export PROJECT_NAME=fastapi-project
 export ENVIRONMENT=dev
 

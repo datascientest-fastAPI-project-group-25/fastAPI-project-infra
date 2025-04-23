@@ -37,15 +37,33 @@ This document outlines the plan for deploying the FastAPI project infrastructure
 
 ### Phase 2: Bootstrap the New AWS Account
 
-1. **Set Up AWS Credentials**:
+1. **Set Up AWS Authentication**:
+
+   **Option 1: Use OIDC Authentication (Recommended)**
    ```bash
-   # Create .env file with AWS credentials
-   cat > .env << EOF
-   AWS_ACCESS_KEY_ID=your_access_key
-   AWS_SECRET_ACCESS_KEY=your_secret_key
-   AWS_DEFAULT_REGION=us-east-1
-   AWS_ACCOUNT_ID=your_account_id
-   EOF
+   # Set the AWS account ID
+   export AWS_ACCOUNT_ID=your_account_id
+   export AWS_DEFAULT_REGION=us-east-1
+
+   # Use the OIDC authentication script
+   ./scripts/deployment/deploy-with-oidc.sh
+   ```
+
+   **Option 2: Use AWS CLI Configuration**
+   ```bash
+   # Configure AWS CLI with your credentials
+   aws configure
+
+   # Set the AWS account ID
+   export AWS_ACCOUNT_ID=your_account_id
+   export AWS_DEFAULT_REGION=us-east-1
+   ```
+
+   **Option 3: Use IAM Roles (for EC2 or EKS)**
+   ```bash
+   # If running on EC2 or EKS with IAM roles, just set the account ID
+   export AWS_ACCOUNT_ID=your_account_id
+   export AWS_DEFAULT_REGION=us-east-1
    ```
 
 2. **Run AWS Connection Script**:
@@ -146,11 +164,15 @@ For a fully automated deployment, use the following script:
 ```bash
 #!/bin/bash
 
-# Set AWS credentials
-export AWS_ACCESS_KEY_ID=your_access_key
-export AWS_SECRET_ACCESS_KEY=your_secret_key
+# Set AWS account ID and region
 export AWS_DEFAULT_REGION=us-east-1
 export AWS_ACCOUNT_ID=your_account_id
+
+# Verify AWS authentication
+aws sts get-caller-identity || {
+    echo "AWS authentication failed. Please configure AWS credentials."
+    exit 1
+}
 
 # Update AWS account information
 sed -i "s/aws_account_id = .*/aws_account_id = \"$AWS_ACCOUNT_ID\"/" terraform/environments/clean-deploy/development/terraform.tfvars
@@ -172,13 +194,35 @@ cd terraform/environments/clean-deploy
 cd ../../../
 ```
 
+## Terraform State Security
+
+The Terraform state contains sensitive information and should be properly secured. This deployment plan uses the following security measures for Terraform state:
+
+1. **S3 Bucket with Encryption**: The Terraform state is stored in an S3 bucket with server-side encryption enabled.
+
+2. **DynamoDB Table for State Locking**: A DynamoDB table is used for state locking to prevent concurrent modifications.
+
+3. **IAM Policies**: The S3 bucket and DynamoDB table are protected with IAM policies that restrict access to authorized users only.
+
+4. **Versioning**: S3 bucket versioning is enabled to maintain a history of state files and allow for recovery if needed.
+
+5. **Access Logging**: S3 bucket access logging is enabled to track all access to the state files.
+
+To further enhance security, consider implementing:
+
+- **Cross-Region Replication**: For disaster recovery purposes.
+- **Regular Backups**: Of the Terraform state files.
+- **Monitoring and Alerting**: For unauthorized access attempts.
+
 ## Troubleshooting
 
 ### Common Issues
 
-1. **AWS Credentials Error**:
-   - Verify AWS credentials are correctly set in .env file
-   - Check AWS permissions for the user
+1. **AWS Authentication Error**:
+   - Verify AWS authentication using `aws sts get-caller-identity`
+   - Check IAM permissions for the user or role
+   - For OIDC authentication, verify the trust relationship is correctly configured
+   - For IAM roles, verify the instance profile is correctly attached
 
 2. **Terraform State Error**:
    - Verify S3 bucket and DynamoDB table exist
