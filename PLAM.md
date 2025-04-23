@@ -306,14 +306,26 @@ To further enhance security, consider implementing:
                "Action": "sts:AssumeRoleWithWebIdentity",
                "Condition": {
                    "StringEquals": {
+                       "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                       "token.actions.githubusercontent.com:sub": "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:pull_request"
+                   }
+               }
+           },
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "Federated": "arn:aws:iam::221082192409:oidc-provider/token.actions.githubusercontent.com"
+               },
+               "Action": "sts:AssumeRoleWithWebIdentity",
+               "Condition": {
+                   "StringEquals": {
                        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
                    },
                    "StringLike": {
                        "token.actions.githubusercontent.com:sub": [
                            "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/heads/main",
                            "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/heads/feat/*",
-                           "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/pull/*",
-                           "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:pull_request"
+                           "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/pull/*"
                        ]
                    }
                }
