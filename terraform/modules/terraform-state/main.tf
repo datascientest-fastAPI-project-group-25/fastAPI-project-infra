@@ -16,7 +16,7 @@ resource "aws_s3_bucket" "terraform_state" {
 # Enable versioning on the S3 bucket
 resource "aws_s3_bucket_versioning" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
-  
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -64,11 +64,11 @@ resource "aws_dynamodb_table" "terraform_lock" {
 
 # Create IAM OIDC Provider for GitHub if it doesn't exist
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # GitHub's OIDC thumbprint - this is the certificate thumbprint for GitHub's OIDC provider
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-  
+
   tags = {
     Name        = "github-oidc-provider"
     Environment = var.environment
@@ -79,7 +79,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 # Create IAM Role for GitHub Actions to access Terraform state
 resource "aws_iam_role" "terraform_state_access" {
-  name = "terraform-state-access-${var.environment}"
+  name        = "terraform-state-access-${var.environment}"
   description = "IAM role for GitHub Actions to access Terraform state"
 
   # Trust policy for GitHub OIDC

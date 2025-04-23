@@ -94,11 +94,11 @@ module "argocd" {
 
 # Deploy External Secrets Operator
 module "external_secrets" {
-  source               = "../../modules/external-secrets"
-  project_name         = var.project_name
-  environment          = "development"
-  region               = var.aws_region
-  eks_oidc_provider    = module.eks.oidc_provider
+  source                = "../../modules/external-secrets"
+  project_name          = var.project_name
+  environment           = "development"
+  region                = var.aws_region
+  eks_oidc_provider     = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
 
   depends_on = [module.eks]

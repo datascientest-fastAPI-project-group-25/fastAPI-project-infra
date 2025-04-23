@@ -280,42 +280,48 @@ To further enhance security, consider implementing:
    aws iam get-role --role-name github-actions-development --query 'Role.AssumeRolePolicyDocument'
    ```
 
-3. **Troubleshooting OIDC Authentication**:
-   If you encounter the error "Could not assume role with OIDC: Not authorized to perform sts:AssumeRoleWithWebIdentity", check the following:
+3. **Update Trust Policy for OIDC Authentication**:
+   If you encounter the error "Could not assume role with OIDC: Not authorized to perform sts:AssumeRoleWithWebIdentity", you need to update the trust policy for the IAM roles:
 
-   - Verify that the OIDC provider exists in your AWS account:
-     ```bash
-     aws iam list-open-id-connect-providers
-     ```
+   ```bash
+   # Set your AWS account ID
+   export AWS_ACCOUNT_ID=221082192409
+   export AWS_DEFAULT_REGION=us-east-1
 
-   - Verify that the IAM roles exist and have the correct trust relationship:
-     ```bash
-     aws iam get-role --role-name github-actions-development --query 'Role.AssumeRolePolicyDocument'
-     ```
+   # Run the update trust policy script
+   bash scripts/update-github-oidc-trust-policy.sh
+   ```
 
-   - Verify that the trust relationship includes the correct repository and branch:
-     ```json
-     {
-         "Version": "2012-10-17",
-         "Statement": [
-             {
-                 "Effect": "Allow",
-                 "Principal": {
-                     "Federated": "arn:aws:iam::221082192409:oidc-provider/token.actions.githubusercontent.com"
-                 },
-                 "Action": "sts:AssumeRoleWithWebIdentity",
-                 "Condition": {
-                     "StringEquals": {
-                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-                     },
-                     "StringLike": {
-                         "token.actions.githubusercontent.com:sub": "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:*"
-                     }
-                 }
-             }
-         ]
-     }
-     ```
+   This script will update the trust policy for the IAM roles to allow GitHub Actions to assume them using OIDC authentication. The trust policy will include the following conditions:
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "Federated": "arn:aws:iam::221082192409:oidc-provider/token.actions.githubusercontent.com"
+               },
+               "Action": "sts:AssumeRoleWithWebIdentity",
+               "Condition": {
+                   "StringEquals": {
+                       "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                       "token.actions.githubusercontent.com:sub": "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:pull_request"
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+   This trust policy allows GitHub Actions to assume the IAM roles when running workflows from pull requests.
+
+   You can verify that the trust policy has been updated correctly:
+
+   ```bash
+   aws iam get-role --role-name github-actions-staging --query 'Role.AssumeRolePolicyDocument'
+   ```
 
 4. **Test GitHub Actions Workflow**:
    - Trigger a workflow run to verify that the GitHub Actions can successfully authenticate with AWS

@@ -3,12 +3,12 @@
 
 # Create IAM OIDC Provider for GitHub
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # GitHub's OIDC thumbprint - this is the certificate thumbprint for GitHub's OIDC provider
   # This should be updated if GitHub rotates their certificates
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-  
+
   tags = {
     Name        = "github-oidc-provider"
     Environment = var.environment
@@ -18,7 +18,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 # Create IAM Role for GitHub OIDC
 resource "aws_iam_role" "github_actions" {
-  name = "github-actions-${var.environment}"
+  name        = "github-actions-${var.environment}"
   description = "IAM role for GitHub Actions OIDC authentication for ${var.environment} environment"
 
   # Trust policy that allows GitHub Actions to assume this role using OIDC
@@ -96,7 +96,7 @@ resource "aws_iam_role_policy_attachment" "github_ecr_attachment" {
 # Add additional permissions for infrastructure management
 resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
   role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"  # This gives broad access - consider restricting further
+  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess" # This gives broad access - consider restricting further
 }
 
 # Create Kubernetes service account for pulling images

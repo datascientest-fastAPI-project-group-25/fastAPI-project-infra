@@ -30,7 +30,6 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  id-token: write
   contents: read
   pull-requests: write
   actions: write
@@ -58,14 +57,18 @@ jobs:
         id: set_env
         run: |
           if [[ "${{ github.event.inputs.environment }}" != "" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            if [[ "${{ github.event.inputs.environment }}" == "stg" ]]; then
+              echo "environment=staging" >> $GITHUB_OUTPUT
+            else
+              echo "environment=production" >> $GITHUB_OUTPUT
+            fi
             exit 0
           fi
 
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "environment=production" >> $GITHUB_OUTPUT
           else
-            echo "environment=stg" >> $GITHUB_OUTPUT
+            echo "environment=staging" >> $GITHUB_OUTPUT
           fi
 
   terraform:
@@ -87,8 +90,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Print GitHub context and OIDC token details
-      - name: Debug OIDC Claims
+      # Print GitHub context details
+      - name: Debug GitHub Context
         run: |
           echo "Event name: ${{ github.event_name }}"
           echo "Actor: ${{ github.actor }}"
@@ -96,15 +99,20 @@ jobs:
           echo "Ref: ${{ github.ref }}"
           echo "SHA: ${{ github.sha }}"
           echo "Workflow: ${{ github.workflow }}"
-          echo "Getting OIDC token..."
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value' | cut -d'.' -f2 | base64 -d | jq .
+          echo "Environment: ${{ needs.determine_environment.outputs.environment }}"
 
       # Configure AWS credentials
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::575977136211:role/github-actions-${{ needs.determine_environment.outputs.environment }}
-          aws-region: us-east-1
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+          echo "[default]" > ~/.aws/config
+          echo "region=us-east-1" >> ~/.aws/config
+          echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
+          echo "Using AWS account ID: ${{ secrets.AWS_ACCOUNT_ID }}"
 
       # Cache Terraform CLI installation
       - name: Cache Terraform CLI
@@ -150,13 +158,6 @@ jobs:
           path: tfplan
           key: terraform-plan-${{ needs.determine_environment.outputs.cache_key }}
 
-      - name: Validate AWS credentials
-        run: |
-          aws sts get-caller-identity || {
-            echo "Failed to validate AWS credentials"
-            exit 1
-          }
-
       - name: Terraform Format
         run: |
           cd terraform
@@ -166,15 +167,29 @@ jobs:
       - name: Initialize and Plan - PR
         if: github.event_name == 'pull_request'
         run: |
-          for env in stg prod; do
-            echo "Planning changes for $env environment..."
-            cd terraform/environments/deploy/$env
-            terraform init \
-              -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-              -backend-config="key=fastapi/infra/$env/terraform.tfstate" \
-              -backend-config="region=${AWS_DEFAULT_REGION}" \
-              -backend-config="dynamodb_table=terraform-state-lock-$env"
-            terraform plan -var-file=terraform.tfvars -out=${env}.tfplan
+          # Map short names to directory names
+          declare -A env_dirs
+          env_dirs[staging]=stg
+          env_dirs[production]=prod
+
+          # Create backend config files
+          mkdir -p /tmp/backend-configs
+
+          for env in staging production; do
+            dir=${env_dirs[$env]}
+            echo "Planning changes for $env environment (directory: $dir)..."
+
+            # Create backend config file
+            cat > /tmp/backend-configs/${dir}.tfbackend << EOT
+bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+key = "fastapi/infra/$dir/terraform.tfstate"
+region = "${AWS_DEFAULT_REGION}"
+dynamodb_table = "terraform-state-lock-$dir"
+EOT
+
+            cd terraform/environments/deploy/$dir
+            terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
+            terraform plan -var-file=terraform.tfvars -out=${dir}.tfplan
             cd ../../../
           done
 
@@ -182,12 +197,17 @@ jobs:
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Create backend config file
+          mkdir -p /tmp/backend-configs
+          cat > /tmp/backend-configs/prod.tfbackend << EOT
+bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+key = "fastapi/infra/prod/terraform.tfstate"
+region = "${AWS_DEFAULT_REGION}"
+dynamodb_table = "terraform-state-lock-prod"
+EOT
+
           cd terraform/environments/deploy/prod
-          terraform init \
-            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-            -backend-config="key=fastapi/infra/prod/terraform.tfstate" \
-            -backend-config="region=${AWS_DEFAULT_REGION}" \
-            -backend-config="dynamodb_table=terraform-state-lock-prod"
+          terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
           terraform plan -var-file=terraform.tfvars -out=tfplan
           terraform apply -auto-approve tfplan
 

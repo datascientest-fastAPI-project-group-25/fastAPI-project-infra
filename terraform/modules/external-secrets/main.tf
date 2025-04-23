@@ -15,7 +15,7 @@ resource "kubernetes_namespace" "external_secrets" {
 # Create IAM role for External Secrets Operator
 resource "aws_iam_role" "external_secrets" {
   name = "external-secrets-${var.environment}"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -36,7 +36,7 @@ resource "aws_iam_role" "external_secrets" {
       }
     ]
   })
-  
+
   tags = {
     Name        = "external-secrets-${var.environment}"
     Environment = var.environment
@@ -49,7 +49,7 @@ resource "aws_iam_role" "external_secrets" {
 resource "aws_iam_policy" "external_secrets" {
   name        = "external-secrets-policy-${var.environment}"
   description = "Policy for External Secrets Operator to access Secrets Manager"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -72,7 +72,7 @@ resource "aws_iam_policy" "external_secrets" {
       }
     ]
   })
-  
+
   tags = {
     Name        = "external-secrets-policy-${var.environment}"
     Environment = var.environment
@@ -94,29 +94,29 @@ resource "helm_release" "external_secrets" {
   chart      = "external-secrets"
   namespace  = kubernetes_namespace.external_secrets.metadata[0].name
   version    = "0.9.9"
-  
+
   set {
     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
     value = aws_iam_role.external_secrets.arn
   }
-  
+
   set {
     name  = "serviceAccount.create"
     value = "true"
   }
-  
+
   set {
     name  = "installCRDs"
     value = "true"
   }
-  
+
   values = [
     <<-EOT
     podLabels:
       environment: ${var.environment}
     EOT
   ]
-  
+
   depends_on = [
     kubernetes_namespace.external_secrets,
     aws_iam_role_policy_attachment.external_secrets

@@ -1,7 +1,7 @@
 # Staging Environment Configuration
 
 terraform {
-  backend "local" {}
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -53,24 +53,7 @@ module "eks" {
   depends_on = [module.vpc, module.security]
 }
 
-# Create RDS instance for staging
-module "rds" {
-  source                 = "../../../modules/rds"
-  project_name           = var.project_name
-  environment           = "stg"
-  vpc_id                = module.vpc.vpc_id
-  db_subnet_group_name  = module.vpc.db_subnet_group_name
-  eks_security_group_ids = [module.security.private_security_group_id]
-  rds_security_group_id = module.security.rds_security_group_id
-  db_username           = var.db_username
-  db_password           = var.db_password
-  db_name               = var.db_name
-  instance_class        = var.rds_instance_class
-  allocated_storage     = var.rds_allocated_storage
-  max_allocated_storage = var.rds_max_allocated_storage
-
-  depends_on = [module.vpc, module.security]
-}
+# Using in-cluster PostgreSQL instead of external RDS
 
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
@@ -96,10 +79,10 @@ provider "helm" {
 
 # Configure GHCR authentication for pulling images
 module "ghcr_auth" {
-  source = "../../../modules/ghcr-secret"
-  environment = "stg"
-  namespaces = ["fastapi-helm-stg"]  # Match k8s_resources namespace
-  github_org = var.github_org
+  source                         = "../../../modules/ghcr-secret"
+  environment                    = "stg"
+  namespaces                     = ["fastapi-helm-stg"] # Match k8s_resources namespace
+  github_org                     = var.github_org
   machine_user_token_secret_name = "github/machine-user-token"
 
   depends_on = [module.eks]
@@ -109,15 +92,15 @@ module "ghcr_auth" {
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
   environment     = "stg"
-  namespace       = "fastapi-helm-stg"  # Keep namespace consistent
+  namespace       = "fastapi-helm-stg" # Keep namespace consistent
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
-  use_external_db = true
-  db_host         = module.rds.db_instance_address  # Add RDS connection details
-  db_port         = module.rds.db_instance_port     # Add RDS connection details
+  use_external_db = false # Use in-cluster PostgreSQL
+  github_username = var.github_username
+  github_token    = var.github_token
 
-  depends_on = [module.eks, module.rds]
+  depends_on = [module.eks]
 }
 
 # Deploy ArgoCD using our custom module
@@ -136,11 +119,11 @@ module "argocd" {
 
 # Deploy External Secrets Operator
 module "external_secrets" {
-  source               = "../../../modules/external-secrets"
-  project_name         = var.project_name
-  environment          = "stg"
-  region               = var.aws_region
-  eks_oidc_provider    = module.eks.oidc_provider
+  source                = "../../../modules/external-secrets"
+  project_name          = var.project_name
+  environment           = "stg"
+  region                = var.aws_region
+  eks_oidc_provider     = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
 
   depends_on = [module.eks]
@@ -148,11 +131,10 @@ module "external_secrets" {
 
 # Configure GitHub Actions OIDC
 module "github_actions_oidc" {
-  source          = "../../../modules/github-actions-oidc"
-  environment     = "stg"
-  github_org      = var.github_org
-  github_repo     = var.github_repo # Add missing variable
-  namespaces      = ["fastapi-helm-stg"]  # Match k8s_resources namespace
+  source      = "../../../modules/github-actions-oidc"
+  environment = "stg"
+  github_org  = var.github_org
+  namespaces  = ["fastapi-helm-stg"] # Match k8s_resources namespace
 
   depends_on = [module.eks]
 }
