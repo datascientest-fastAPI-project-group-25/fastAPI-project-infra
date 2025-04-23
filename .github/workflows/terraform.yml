@@ -14,7 +14,7 @@ on:
       - 'terraform/modules/security/**'
   pull_request:
     branches:
-      - main    
+      - main
     paths-ignore:
       - 'bootstrap/**'
       - 'terraform/modules/terraform-state/**'
@@ -69,11 +69,11 @@ jobs:
     needs: determine_environment
     runs-on: ubuntu-latest
     env:
-      AWS_ACCOUNT_ID: "575977136211"
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_DEFAULT_REGION: "us-east-1"
       PROJECT_NAME: "fastapi-project"
       ENVIRONMENT: ${{ needs.determine_environment.outputs.environment }}
-      TF_VAR_aws_account_id: "575977136211"
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
       TF_INPUT: false
       TF_IN_AUTOMATION: true
@@ -113,7 +113,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::575977136211:role/github-actions-${{ needs.determine_environment.outputs.environment }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-${{ needs.determine_environment.outputs.environment }}
           aws-region: us-east-1
 
       # Cache Terraform providers and modules
