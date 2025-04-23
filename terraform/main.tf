@@ -23,7 +23,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "fastapi-project-terraform-state-575977136211"
+    bucket         = "fastapi-project-terraform-state-${var.aws_account_id}"
     key            = "fastapi/infra/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-state-lock-test"

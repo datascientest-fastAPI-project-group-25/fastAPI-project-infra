@@ -4,7 +4,7 @@
 
 # Set environment variables
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=575977136211
+export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-221082192409}
 export PROJECT_NAME=fastapi-project
 export ENVIRONMENT=dev
 
@@ -35,7 +35,7 @@ cat > backend.tf << EOF
 terraform {
   # Using S3 backend for development
   backend "s3" {
-    bucket         = "fastapi-project-terraform-state-575977136211"
+    bucket         = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
     key            = "fastapi/infra/development/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-state-lock-dev"

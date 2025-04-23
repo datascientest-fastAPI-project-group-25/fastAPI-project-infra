@@ -4,12 +4,12 @@
 
 # Set environment variables
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=575977136211
+export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-221082192409}
 export PROJECT_NAME=fastapi-project
 export ENVIRONMENT=dev
 
 # S3 bucket name
-BUCKET_NAME="fastapi-project-terraform-state-575977136211"
+BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
 
 # DynamoDB table name
 TABLE_NAME="terraform-state-lock-dev"
