@@ -38,9 +38,12 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            # This condition restricts access to repositories in the specified GitHub organization
-            # Format: repo:OWNER/REPO:ref:REF or repo:OWNER/REPO:environment:ENVIRONMENT
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/*:*"
+            # Allow both pull requests and direct pushes to branches
+            "token.actions.githubusercontent.com:sub" = [
+              "repo:${var.github_org}/*:ref:refs/heads/*",
+              "repo:${var.github_org}/*:pull_request",
+              "repo:${var.github_org}/*:environment:${var.environment}"
+            ]
           }
         }
       }
