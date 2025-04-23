@@ -180,12 +180,12 @@ jobs:
             echo "Planning changes for $env environment (directory: $dir)..."
 
             # Create backend config file
-            cat > /tmp/backend-configs/${dir}.tfbackend << EOF
-            bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-            key = "fastapi/infra/$dir/terraform.tfstate"
-            region = "${AWS_DEFAULT_REGION}"
-            dynamodb_table = "terraform-state-lock-$dir"
-            EOF
+            cat > /tmp/backend-configs/${dir}.tfbackend << EOT
+bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+key = "fastapi/infra/$dir/terraform.tfstate"
+region = "${AWS_DEFAULT_REGION}"
+dynamodb_table = "terraform-state-lock-$dir"
+EOT
 
             cd terraform/environments/deploy/$dir
             terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
@@ -199,12 +199,12 @@ jobs:
         run: |
           # Create backend config file
           mkdir -p /tmp/backend-configs
-          cat > /tmp/backend-configs/prod.tfbackend << EOF
-          bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-          key = "fastapi/infra/prod/terraform.tfstate"
-          region = "${AWS_DEFAULT_REGION}"
-          dynamodb_table = "terraform-state-lock-prod"
-          EOF
+          cat > /tmp/backend-configs/prod.tfbackend << EOT
+bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+key = "fastapi/infra/prod/terraform.tfstate"
+region = "${AWS_DEFAULT_REGION}"
+dynamodb_table = "terraform-state-lock-prod"
+EOT
 
           cd terraform/environments/deploy/prod
           terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
