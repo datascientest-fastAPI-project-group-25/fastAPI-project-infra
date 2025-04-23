@@ -36,7 +36,7 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringEquals = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/*:pull_request"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:pull_request"
           }
         }
       },
@@ -51,7 +51,7 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/*:ref:refs/heads/*"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/heads/*"
           }
         }
       }
