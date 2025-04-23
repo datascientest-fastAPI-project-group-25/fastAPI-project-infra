@@ -181,17 +181,17 @@ jobs:
 
             # Create backend config file
             cat > /tmp/backend-configs/${dir}.tfbackend << EOT
-bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-key = "fastapi/infra/$dir/terraform.tfstate"
-region = "${AWS_DEFAULT_REGION}"
-dynamodb_table = "terraform-state-lock-$dir"
-EOT
+            bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+            key = "fastapi/infra/$dir/terraform.tfstate"
+            region = "${AWS_DEFAULT_REGION}"
+            dynamodb_table = "terraform-state-lock"
+            EOT
 
-            cd terraform/environments/deploy/$dir
-            terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
-            terraform plan -var-file=terraform.tfvars -out=${dir}.tfplan
-            cd ../../../
-          done
+                        cd terraform/environments/deploy/$dir
+                        terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
+                        terraform plan -var-file=terraform.tfvars -out=${dir}.tfplan
+                        cd ../../../
+                      done
 
       # Initialize and apply for production on main
       - name: Deploy to Production
@@ -200,16 +200,16 @@ EOT
           # Create backend config file
           mkdir -p /tmp/backend-configs
           cat > /tmp/backend-configs/prod.tfbackend << EOT
-bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-key = "fastapi/infra/prod/terraform.tfstate"
-region = "${AWS_DEFAULT_REGION}"
-dynamodb_table = "terraform-state-lock-prod"
-EOT
+          bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+          key = "fastapi/infra/prod/terraform.tfstate"
+          region = "${AWS_DEFAULT_REGION}"
+          dynamodb_table = "terraform-state-lock"
+          EOT
 
-          cd terraform/environments/deploy/prod
-          terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
-          terraform plan -var-file=terraform.tfvars -out=tfplan
-          terraform apply -auto-approve tfplan
+                    cd terraform/environments/deploy/prod
+                    terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
+                    terraform plan -var-file=terraform.tfvars -out=tfplan
+                    terraform apply -auto-approve tfplan
 
       # Comment plan output on PR
       - name: Comment Plan Output
