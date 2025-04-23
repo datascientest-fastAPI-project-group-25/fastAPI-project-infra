@@ -6,13 +6,23 @@ on:
       - main
   pull_request:
     branches:
-      - main    
+      - main
     paths-ignore:
       - 'bootstrap/**'
       - 'terraform/modules/terraform-state/**'
       - 'terraform/modules/logging/**'
       - 'terraform/modules/security/**'
+      - '.github/workflows/terraform-bootstrap.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (stg/prod)'
+        required: false
+        default: 'stg'
+        type: choice
+        options:
+          - stg
+          - prod
 
 # Prevent parallel deployments for same environment
 concurrency:
@@ -45,13 +55,20 @@ jobs:
           HASH=$(find . -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -exec sha256sum {} \; | sha256sum | cut -d ' ' -f1)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
-      - name: Set environment based on branch
+      - name: Set environment based on context
         id: set_env
         run: |
+          # First check for manual workflow input
+          if [[ "${{ github.event.inputs.environment }}" != "" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Then check branch for automatic environment selection
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "environment=prod" >> $GITHUB_OUTPUT
           else
-            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "environment=stg" >> $GITHUB_OUTPUT
           fi
 
   terraform:
@@ -135,48 +152,32 @@ jobs:
           cd terraform
           terraform fmt -check -recursive
 
-      # Initialize Terraform for all environments on PR
-      - name: Initialize Terraform - All Environments
+      # Initialize and plan for both environments on PR
+      - name: Initialize and Plan - PR
         if: github.event_name == 'pull_request'
         run: |
-          for env in development staging production; do
-            echo "Initializing $env environment..."
+          for env in stg prod; do
+            echo "Planning changes for $env environment..."
             cd terraform/environments/clean-deploy/$env
             terraform init \
               -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
               -backend-config="key=fastapi/infra/$env/terraform.tfstate" \
               -backend-config="region=${AWS_DEFAULT_REGION}" \
-              -backend-config="dynamodb_table=terraform-state-lock-dev"
-            cd ../../../
-          done
-
-      # Plan changes for all environments on PR
-      - name: Plan Terraform Changes - All Environments
-        if: github.event_name == 'pull_request'
-        run: |
-          for env in development staging production; do
-            echo "Planning changes for $env environment..."
-            cd terraform/environments/clean-deploy/$env
+              -backend-config="dynamodb_table=terraform-state-lock-$env"
             terraform plan -var-file=terraform.tfvars -out=${env}.tfplan
             cd ../../../
           done
 
-      # Initialize Terraform for production on main merge
-      - name: Initialize Terraform - Production
+      # Initialize and apply for production on main
+      - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          cd terraform/environments/clean-deploy/production
+          cd terraform/environments/clean-deploy/prod
           terraform init \
             -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-            -backend-config="key=fastapi/infra/production/terraform.tfstate" \
+            -backend-config="key=fastapi/infra/prod/terraform.tfstate" \
             -backend-config="region=${AWS_DEFAULT_REGION}" \
-            -backend-config="dynamodb_table=terraform-state-lock-dev"
-
-      # Apply changes to production on main merge
-      - name: Apply Terraform Changes - Production
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          cd terraform/environments/clean-deploy/production
+            -backend-config="dynamodb_table=terraform-state-lock-prod"
           terraform plan -var-file=terraform.tfvars -out=tfplan
           terraform apply -auto-approve tfplan
 
@@ -190,10 +191,10 @@ jobs:
             const fs = require('fs');
             let comment = '## Terraform Plan Output\n\n';
             
-            for (const env of ['development', 'staging', 'production']) {
+            for (const env of ['stg', 'prod']) {
               const planPath = `terraform/environments/clean-deploy/${env}/${env}.tfplan`;
               if (fs.existsSync(planPath)) {
-                comment += `### ${env} Environment\n\`\`\`hcl\n`;
+                comment += `### ${env.toUpperCase()} Environment\n\`\`\`hcl\n`;
                 comment += fs.readFileSync(planPath, 'utf8');
                 comment += '\n\`\`\`\n\n';
               }
