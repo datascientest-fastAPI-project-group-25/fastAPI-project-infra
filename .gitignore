@@ -78,3 +78,4 @@ __pycache__/
 
 # AI Assistant files
 .codebuddy
+workflow_logs*.txt
