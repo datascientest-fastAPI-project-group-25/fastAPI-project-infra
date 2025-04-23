@@ -59,3 +59,15 @@ variable "max_size" {
   type        = number
   default     = 3
 }
+
+variable "enable_cost_optimization" {
+  description = "Enable cost optimization features like auto-scaling to 0 during off-hours"
+  type        = bool
+  default     = false
+}
+
+variable "use_spot_instances" {
+  description = "Use spot instances for the EKS node group (cost optimization)"
+  type        = bool
+  default     = false
+}

@@ -1,17 +1,40 @@
+# Terraform Bootstrap Infrastructure Workflow
+#
+# Purpose:
+# This workflow manages the essential infrastructure components needed for Terraform state management
+# and other foundational AWS resources. It is intentionally restricted to run only when bootstrap-related
+# changes are made to ensure infrastructure stability.
+#
+# Trigger Conditions:
+# 1. Push to branches matching 'bootstrap/*'
+# 2. Pull requests targeting main that modify bootstrap-related files
+# 3. Manual trigger via workflow_dispatch
+#
+# Security Note:
+# This workflow has elevated permissions as it manages foundational infrastructure.
+# Changes should be thoroughly reviewed before merging.
+
 name: Terraform Bootstrap Infrastructure
 
 on:
   push:
     branches:
-      - 'fix/**'
-      - 'feat/**'
+      - 'bootstrap/**'
   pull_request:
     branches:
       - main
     paths:
-      - '**.tf'
-      - '.github/workflows/**'
+      - 'bootstrap/**'
+      - 'terraform/modules/terraform-state/**'
+      - 'terraform/modules/logging/**'
+      - 'terraform/modules/security/**'
+      - '.github/workflows/terraform-bootstrap.yml'
   workflow_dispatch:
+
+# Prevent concurrent bootstrap operations
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   id-token: write
@@ -20,140 +43,119 @@ permissions:
   actions: write
 
 jobs:
+  # Add pre-check job to validate if bootstrap resources need updating
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      bootstrap_needed: ${{ steps.check.outputs.bootstrap_needed }}
+      cache_key: ${{ steps.cache_key.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate cache key
+        id: cache_key
+        run: |
+          # Create hash from bootstrap files and workflow
+          HASH=$(find bootstrap terraform/modules -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -exec sha256sum {} \; | sha256sum | cut -d ' ' -f1)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
+      - name: Check for relevant changes
+        id: check
+        run: |
+          # If triggered by bootstrap/* branch push, always run
+          if [[ "${{ github.ref }}" == refs/heads/bootstrap/* ]]; then
+            echo "Changes from bootstrap branch, requiring bootstrap"
+            echo "bootstrap_needed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For other triggers, check changed files
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed_files.txt
+          
+          # Check if any bootstrap-related files were modified
+          if grep -q -E '^bootstrap/|^terraform/modules/(terraform-state|logging|security)/' changed_files.txt; then
+            echo "Bootstrap-related files were modified"
+            echo "bootstrap_needed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No bootstrap-related files were modified"
+            echo "bootstrap_needed=false" >> $GITHUB_OUTPUT
+          fi
+
   bootstrap:
+    needs: check-changes
+    if: needs.check-changes.outputs.bootstrap_needed == 'true' || github.event_name == 'workflow_dispatch'
     name: Bootstrap Infrastructure
     runs-on: ubuntu-latest
-    container:
-      image: catthehacker/ubuntu:act-latest
-    defaults:
-      run:
-        shell: bash
     outputs:
       infra_role_created: ${{ steps.check_role.outputs.exists }}
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || vars.AWS_SECRET_ACCESS_KEY || secrets.AWS_SECRET_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_DEFAULT_REGION: us-east-1
       PROJECT_NAME: fastapi-project
-      ENVIRONMENT: dev
       TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
       TF_INPUT: false
       TF_IN_AUTOMATION: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Terraform and AWS CLI
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update
-          apt-get install -y curl unzip python3-pip
-          # Install Terraform
-          curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-          # Check if terraform exists and remove it if it's a directory
-          if [ -d "terraform" ]; then
-            rm -rf terraform
-          fi
-          unzip -o terraform_1.5.7_linux_amd64.zip
-          mv terraform /usr/bin/
-          terraform --version
-          # Install AWS CLI using pip directly
-          pip3 install awscli
-          aws --version
+      # Cache Terraform CLI installation
+      - name: Cache Terraform CLI
+        uses: actions/cache@v4
+        id: cache-terraform
+        with:
+          path: /usr/local/bin/terraform
+          key: terraform-1.5.7
+          restore-keys: |
+            terraform-1.5
 
-      - name: Verify required files
-        run: |
-          required_files=(
-            "bootstrap/environments/aws/setup-state-bucket.sh"
-            "bootstrap/environments/aws/apply-bootstrap.sh"
-            "bootstrap/environments/aws/main.tf"
-            "bootstrap/scripts/load-env.sh"
-          )
+      # Only install Terraform if not cached
+      - name: Setup Terraform
+        if: steps.cache-terraform.outputs.cache-hit != 'true'
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
 
-          for file in "${required_files[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "Error: Required file $file not found"
-              exit 1
-            else
-              echo "✓ Found $file"
-            fi
-          done
+      # Cache AWS CLI installation
+      - name: Cache AWS CLI
+        uses: actions/cache@v4
+        id: cache-aws
+        with:
+          path: ~/.aws/cli
+          key: aws-cli-2.x
+          restore-keys: |
+            aws-cli-
 
-      - name: Configure AWS credentials
-        run: |
-          if [ "$GITHUB_ACTIONS" = "true" ]; then
-            echo "Running in GitHub Actions..."
-          else
-            echo "Running locally with act..."
-          fi
-          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
-          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
-          aws configure set region "$AWS_DEFAULT_REGION"
+      # Configure AWS credentials
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      - name: Validate AWS credentials
-        run: |
-          # Skip actual AWS operations when running in Act
-          if [ "$ACT" = "true" ]; then
-            echo "Running in Act - using localstack for AWS credential validation"
-            # Start localstack if it's not already running
-            if ! docker ps | grep -q localstack; then
-              echo "Starting LocalStack..."
-              docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
-              echo "Waiting for LocalStack to be ready..."
-              sleep 10
-            fi
-            # Use localstack endpoint for get-caller-identity
-            aws --endpoint-url=http://localhost:4566 sts get-caller-identity || {
-              echo "Failed to validate AWS credentials with localstack"
-              exit 1
-            }
-          else
-            # Use real AWS for get-caller-identity
-            aws sts get-caller-identity || {
-              echo "Failed to validate AWS credentials"
-              exit 1
-            }
-          fi
+      # Cache Terraform providers and modules
+      - name: Cache Terraform providers and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/.terraform
+            ~/.terraform.d/plugin-cache
+          key: terraform-bootstrap-deps-${{ needs.check-changes.outputs.cache_key }}
+          restore-keys: |
+            terraform-bootstrap-deps-
 
-      - name: Set up state bucket
-        working-directory: ./bootstrap/environments/aws
-        run: |
-          if [ ! -f "setup-state-bucket.sh" ]; then
-            echo "Error: setup-state-bucket.sh not found"
-            ls -la
-            exit 1
-          fi
-
-          # Skip actual AWS operations when running in Act
-          if [ "$ACT" = "true" ]; then
-            echo "Running in Act - skipping actual AWS operations"
-            echo "MOCK: State bucket setup completed successfully"
-            exit 0
-          fi
-
-          bash setup-state-bucket.sh
-
-      - name: Package Lambda function
-        working-directory: ./bootstrap/environments/aws
-        run: |
-          if [ ! -f "package-lambda.sh" ]; then
-            echo "Error: package-lambda.sh not found"
-            ls -la
-            exit 1
-          fi
-          bash package-lambda.sh
-
-      - name: Apply bootstrap configuration
-        working-directory: ./bootstrap/environments/aws
-        run: |
-          if [ ! -f "apply-bootstrap.sh" ]; then
-            echo "Error: apply-bootstrap.sh not found"
-            ls -la
-            exit 1
-          fi
-          bash apply-bootstrap.sh
+      # Cache Terraform plan
+      - name: Cache Terraform plan
+        uses: actions/cache@v4
+        with:
+          path: tfplan
+          key: terraform-bootstrap-plan-${{ needs.check-changes.outputs.cache_key }}
 
       - name: Check if FastAPIProjectBootstrapInfraRole exists
         id: check_role
@@ -166,271 +168,84 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Bootstrap Resources
-        if: steps.check_role.outputs.exists != 'true'
+      - name: Plan Terraform Changes
         working-directory: ./bootstrap/environments/aws
         run: |
-          # Skip actual AWS operations when running in Act
-          if [ "$ACT" = "true" ]; then
-            echo "Running in Act - using localstack for Terraform operations"
-            # Use localstack environment instead
-            cd ../localstack
+          terraform init -backend=false
+          terraform plan -out=tfplan
 
-            # Initialize Terraform with local backend
-            terraform init
-
-            # Apply Terraform configuration
-            terraform apply -auto-approve
-
-            echo "MOCK: Bootstrap resources created successfully with localstack"
-          else
-            # Use real AWS for Terraform operations
-            BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-            terraform init -reconfigure \
-              -backend-config=backend.hcl \
-              -backend-config="bucket=${BUCKET_NAME}"
-            terraform apply -auto-approve
-          fi
+      - name: Apply Terraform Changes
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/bootstrap/')
+        working-directory: ./bootstrap/environments/aws
+        run: |
+          terraform apply -auto-approve tfplan
 
   terraform:
     name: Terraform Infrastructure Deployment
-    needs: bootstrap
-    if: ${{ needs.bootstrap.outputs.infra_role_created == 'true' }}
+    needs: [check-changes, bootstrap]
+    if: |
+      needs.check-changes.outputs.bootstrap_needed == 'true' &&
+      needs.bootstrap.outputs.infra_role_created == 'true'
     runs-on: ubuntu-latest
-    container:
-      image: catthehacker/ubuntu:act-latest
-    defaults:
-      run:
-        shell: bash
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID || vars.AWS_ACCESS_KEY_ID || secrets.AWS_ACCESS_KEY }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY || vars.AWS_SECRET_ACCESS_KEY || secrets.AWS_SECRET_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_DEFAULT_REGION: us-east-1
       PROJECT_NAME: fastapi-project
-      ENVIRONMENT: dev
       TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
       TF_INPUT: false
       TF_IN_AUTOMATION: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Terraform and AWS CLI
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update
-          apt-get install -y curl unzip python3-pip
-          # Install Terraform
-          curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-          # Check if terraform exists and remove it if it's a directory
-          if [ -d "terraform" ]; then
-            rm -rf terraform
-          fi
-          unzip -o terraform_1.5.7_linux_amd64.zip
-          mv terraform /usr/bin/
-          terraform --version
-          # Install AWS CLI using pip directly
-          pip3 install awscli
-          aws --version
+      # Reuse cached Terraform CLI
+      - name: Cache Terraform CLI
+        uses: actions/cache@v4
+        id: cache-terraform
+        with:
+          path: /usr/local/bin/terraform
+          key: terraform-1.5.7
+          restore-keys: |
+            terraform-1.5
 
-      - name: Configure AWS credentials
-        run: |
-          if [ "$GITHUB_ACTIONS" = "true" ]; then
-            echo "Running in GitHub Actions..."
-          else
-            echo "Running locally with act..."
-          fi
-          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
-          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
-          aws configure set region "$AWS_DEFAULT_REGION"
+      # Only install Terraform if not cached
+      - name: Setup Terraform
+        if: steps.cache-terraform.outputs.cache-hit != 'true'
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
 
-      - name: Validate AWS credentials
-        run: |
-          # Skip actual AWS operations when running in Act
-          if [ "$ACT" = "true" ]; then
-            echo "Running in Act - using localstack for AWS credential validation"
-            # Start localstack if it's not already running
-            if ! docker ps | grep -q localstack; then
-              echo "Starting LocalStack..."
-              docker run -d --name localstack -p 4566:4566 -p 4571:4571 localstack/localstack
-              echo "Waiting for LocalStack to be ready..."
-              sleep 10
-            fi
-            # Use localstack endpoint for get-caller-identity
-            aws --endpoint-url=http://localhost:4566 sts get-caller-identity || {
-              echo "Failed to validate AWS credentials with localstack"
-              exit 1
-            }
-          else
-            # Use real AWS for get-caller-identity
-            aws sts get-caller-identity || {
-              echo "Failed to validate AWS credentials"
-              exit 1
-            }
-          fi
+      # Configure AWS credentials
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Reuse cached providers and modules
+      - name: Cache Terraform providers and modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/.terraform
+            ~/.terraform.d/plugin-cache
+          key: terraform-bootstrap-deps-${{ needs.check-changes.outputs.cache_key }}
 
       - name: Initialize Terraform
         working-directory: ./bootstrap/environments/aws
         run: |
           BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-
-          # If running in Act, use mock mode
-          if [ "$ACT" = "true" ]; then
-            echo "Running in Act - using mock mode"
-            echo "MOCK: Terraform initialized successfully"
-            exit 0
-          fi
-
-          # Create a temporary directory for local state
-          mkdir -p .terraform
-
-          # First try with local backend to ensure modules are downloaded
-          echo "Initializing with local backend first..."
-          terraform init -backend=false
-
-          # Then try to use the S3 backend
-          echo "Now trying with S3 backend..."
-          terraform init -migrate-state -force-copy \
+          terraform init -reconfigure \
             -backend-config=backend.hcl \
-            -backend-config="bucket=${BUCKET_NAME}" || {
+            -backend-config="bucket=${BUCKET_NAME}"
 
-            # If that fails, continue with local backend
-            echo "S3 backend initialization failed, continuing with local backend"
-            echo "This is expected in PR builds where S3 access might be limited"
-
-            # Create a dummy terraform.tfstate file to prevent errors
-            echo '{"version": 4, "terraform_version": "1.5.7", "serial": 1, "lineage": "dummy", "outputs": {}, "resources": []}' > terraform.tfstate
-
-            # Set environment variable to indicate we're using local state
-            echo "USING_LOCAL_STATE=true" >> $GITHUB_ENV
-          }
-
-      - name: Check for existing resources
+      - name: Plan and Apply Changes
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/bootstrap/')
         working-directory: ./bootstrap/environments/aws
         run: |
-          # Check if resources already exist
-          BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-          LOGS_BUCKET_NAME="fastapi-project-terraform-logs-${AWS_ACCOUNT_ID}"
-          DYNAMODB_TABLE="terraform-state-lock"
-          BOOTSTRAP_ROLE="FastAPIProjectBootstrapInfraRole"
-          LAMBDA_ROLE="lambda-execution-role"
-
-          # Set variables to track existing resources
-          STATE_BUCKET_EXISTS=false
-          LOGS_BUCKET_EXISTS=false
-          DYNAMODB_EXISTS=false
-          BOOTSTRAP_ROLE_EXISTS=false
-          LAMBDA_ROLE_EXISTS=false
-
-          # Check S3 buckets
-          if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null; then
-            echo "State bucket already exists: ${BUCKET_NAME}"
-            STATE_BUCKET_EXISTS=true
-          fi
-
-          if aws s3api head-bucket --bucket "${LOGS_BUCKET_NAME}" 2>/dev/null; then
-            echo "Logs bucket already exists: ${LOGS_BUCKET_NAME}"
-            LOGS_BUCKET_EXISTS=true
-          fi
-
-          # Check DynamoDB table
-          if aws dynamodb describe-table --table-name "${DYNAMODB_TABLE}" --region "${AWS_DEFAULT_REGION}" > /dev/null 2>&1; then
-            echo "DynamoDB table already exists: ${DYNAMODB_TABLE}"
-            DYNAMODB_EXISTS=true
-          fi
-
-          # Check IAM roles
-          if aws iam get-role --role-name "${BOOTSTRAP_ROLE}" > /dev/null 2>&1; then
-            echo "Bootstrap role already exists: ${BOOTSTRAP_ROLE}"
-            BOOTSTRAP_ROLE_EXISTS=true
-          fi
-
-          if aws iam get-role --role-name "${LAMBDA_ROLE}" > /dev/null 2>&1; then
-            echo "Lambda role already exists: ${LAMBDA_ROLE}"
-            LAMBDA_ROLE_EXISTS=true
-          fi
-
-          # Save to environment variables for later steps
-          echo "STATE_BUCKET_EXISTS=${STATE_BUCKET_EXISTS}" >> $GITHUB_ENV
-          echo "LOGS_BUCKET_EXISTS=${LOGS_BUCKET_EXISTS}" >> $GITHUB_ENV
-          echo "DYNAMODB_EXISTS=${DYNAMODB_EXISTS}" >> $GITHUB_ENV
-          echo "BOOTSTRAP_ROLE_EXISTS=${BOOTSTRAP_ROLE_EXISTS}" >> $GITHUB_ENV
-          echo "LAMBDA_ROLE_EXISTS=${LAMBDA_ROLE_EXISTS}" >> $GITHUB_ENV
-
-      - name: Plan Terraform Changes
-        working-directory: ./bootstrap/environments/aws
-        run: |
-          # If running in Act or using local state, use mock mode
-          if [ "$ACT" = "true" ] || [ "$USING_LOCAL_STATE" = "true" ]; then
-            echo "Running with local state - using mock mode for plan"
-            echo "MOCK: Terraform plan completed successfully"
-            touch tfplan  # Create a dummy plan file
-            exit 0
-          fi
-
-          # Create a targeted plan based on what resources don't exist yet
-          PLAN_ARGS=""
-
-          # Only target resources that don't exist yet
-          if [ "$STATE_BUCKET_EXISTS" = "false" ]; then
-            PLAN_ARGS="$PLAN_ARGS -target=module.state.aws_s3_bucket.terraform_state"
-          fi
-
-          if [ "$LOGS_BUCKET_EXISTS" = "false" ]; then
-            PLAN_ARGS="$PLAN_ARGS -target=module.logging.aws_s3_bucket.logging_bucket"
-          fi
-
-          if [ "$DYNAMODB_EXISTS" = "false" ]; then
-            PLAN_ARGS="$PLAN_ARGS -target=module.state.aws_dynamodb_table.terraform_locks"
-          fi
-
-          if [ "$BOOTSTRAP_ROLE_EXISTS" = "false" ]; then
-            PLAN_ARGS="$PLAN_ARGS -target=module.security.aws_iam_role.github_actions_bootstrap_role"
-          fi
-
-          if [ "$LAMBDA_ROLE_EXISTS" = "false" ]; then
-            PLAN_ARGS="$PLAN_ARGS -target=module.security.aws_iam_role.lambda_role"
-          fi
-
-          # If all resources exist, just do a normal plan
-          if [ -z "$PLAN_ARGS" ]; then
-            echo "All infrastructure resources already exist, running plan without targets"
-            terraform plan -out=tfplan
-          else
-            echo "Running plan with targets: $PLAN_ARGS"
-            terraform plan $PLAN_ARGS -out=tfplan
-          fi
-
-      - name: Apply Terraform Changes
-        working-directory: ./bootstrap/environments/aws
-        run: |
-          # If running in Act or using local state, use mock mode
-          if [ "$ACT" = "true" ] || [ "$USING_LOCAL_STATE" = "true" ]; then
-            echo "Running with local state - using mock mode for apply"
-            echo "MOCK: Terraform apply completed successfully"
-            echo "MOCK: All resources have been created or updated"
-            exit 0
-          fi
-
-          # Apply the plan
-          terraform apply tfplan || {
-            # If apply fails, it might be because resources already exist
-            # In that case, we'll consider it a success
-            echo "Terraform apply failed, but this might be because resources already exist"
-            echo "Checking if critical resources exist..."
-
-            # Check if critical resources exist
-            BUCKET_NAME="fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-            DYNAMODB_TABLE="terraform-state-lock"
-
-            if aws s3api head-bucket --bucket "${BUCKET_NAME}" 2>/dev/null && \
-               aws dynamodb describe-table --table-name "${DYNAMODB_TABLE}" --region "${AWS_DEFAULT_REGION}" > /dev/null 2>&1; then
-              echo "Critical infrastructure resources exist, considering this a success"
-              exit 0
-            else
-              echo "Critical infrastructure resources are missing, this is a failure"
-              exit 1
-            fi
-          }
+          terraform plan -out=tfplan
+          terraform apply -auto-approve tfplan

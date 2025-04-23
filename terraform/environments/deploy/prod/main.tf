@@ -1,7 +1,7 @@
-# Staging Environment Configuration
+# Production Environment Configuration
 
 terraform {
-  # Using local backend for staging
+  # Using local backend for production
   backend "local" {}
 }
 
@@ -14,7 +14,7 @@ provider "aws" {
 module "vpc" {
   source       = "../../../modules/vpc"
   aws_region   = var.aws_region
-  environment  = "staging"
+  environment  = "prod"
   project_name = var.project_name
   vpc_cidr     = var.vpc_cidr
 }
@@ -23,9 +23,10 @@ module "vpc" {
 module "security" {
   source              = "../../../modules/security"
   vpc_id              = module.vpc.vpc_id
-  environment         = "staging"
+  environment         = "prod"
   project_name        = var.project_name
   allowed_cidr_blocks = var.allowed_cidr_blocks
+  # NOTE: allowed_cidr_blocks should be restricted in production
 
   depends_on = [module.vpc]
 }
@@ -34,7 +35,7 @@ module "security" {
 module "eks" {
   source       = "../../../modules/eks"
   aws_region   = var.aws_region
-  environment  = "staging"
+  environment  = "prod"
   project_name = var.project_name
   vpc_id       = module.vpc.vpc_id
   subnet_ids   = module.vpc.private_subnets
@@ -51,11 +52,11 @@ module "eks" {
   depends_on = [module.vpc, module.security]
 }
 
-# Create RDS instance for staging
+# Create RDS instance for production
 module "rds" {
   source                 = "../../../modules/rds"
   project_name           = var.project_name
-  environment            = "staging"
+  environment            = "prod"
   vpc_id                 = module.vpc.vpc_id
   db_subnet_group_name   = module.vpc.db_subnet_group_name
   eks_security_group_ids = [module.security.private_security_group_id]
@@ -66,6 +67,7 @@ module "rds" {
   instance_class         = var.rds_instance_class
   allocated_storage      = var.rds_allocated_storage
   max_allocated_storage  = var.rds_max_allocated_storage
+  multi_az               = true # Enable high availability for production
 
   depends_on = [module.vpc, module.security]
 }
@@ -94,16 +96,25 @@ provider "helm" {
   }
 }
 
+# Configure GHCR authentication for pulling images
+module "ghcr_auth" {
+  source = "../../../modules/ghcr-secret"
+  environment = "prod"
+  namespaces = ["fastapi-helm-prod"]  # Match k8s_resources namespace
+  github_org = var.github_org
+  machine_user_token_secret_name = "github/machine-user-token"
+
+  depends_on = [module.eks]
+}
+
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
-  environment     = "staging"
-  github_username = var.github_username
-  github_token    = var.github_token
+  environment     = "prod"
+  namespace       = "fastapi-helm-prod"  # Keep namespace consistent
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
-  # Using external RDS for staging
   use_external_db = true
   db_host         = module.rds.db_instance_address
   db_port         = module.rds.db_instance_port
@@ -114,7 +125,7 @@ module "k8s_resources" {
 # Deploy ArgoCD using our custom module
 module "argocd" {
   source                                 = "../../../modules/argo"
-  environment                            = "staging"
+  environment                            = "prod"
   project_name                           = var.project_name
   eks_cluster_endpoint                   = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
@@ -129,7 +140,7 @@ module "argocd" {
 module "external_secrets" {
   source               = "../../../modules/external-secrets"
   project_name         = var.project_name
-  environment          = "staging"
+  environment          = "prod"
   region               = var.aws_region
   eks_oidc_provider    = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
@@ -137,12 +148,13 @@ module "external_secrets" {
   depends_on = [module.eks]
 }
 
-# Configure GitHub Container Registry Access
-module "ghcr_access" {
-  source          = "../../../modules/ghcr-access"
-  github_username = var.github_username
-  github_token    = var.github_token
-  eks_role_arn    = module.eks.worker_iam_role_arn
+# Configure GitHub Actions OIDC
+module "github_actions_oidc" {
+  source          = "../../../modules/github-actions-oidc"
+  environment     = "prod"
+  github_org      = var.github_org
+  github_repo     = var.github_repo # Add missing variable
+  namespaces      = ["fastapi-helm-prod"]  # Match k8s_resources namespace
 
-  depends_on = [module.eks, module.k8s_resources]
+  depends_on = [module.eks]
 }

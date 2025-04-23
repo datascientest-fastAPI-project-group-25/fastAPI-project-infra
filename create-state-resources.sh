@@ -4,15 +4,21 @@
 
 # Set environment variables
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=575977136211
-export PROJECT_NAME=fastapi-project
+# Check if AWS_ACCOUNT_ID is set
+if [ -z "$AWS_ACCOUNT_ID" ]; then
+    echo "Error: AWS_ACCOUNT_ID environment variable is not set."
+    echo "Please set it before running this script:"
+    echo "export AWS_ACCOUNT_ID=221082192409"
+    exit 1
+fi
+export PROJECT_NAME=fastAPI-project
 export ENVIRONMENT=dev
 
 # S3 bucket name
-BUCKET_NAME="fastapi-project-terraform-state-575977136211"
+BUCKET_NAME="${PROJECT_NAME}-terraform-state-${AWS_ACCOUNT_ID}"
 
 # DynamoDB table name
-TABLE_NAME="terraform-state-lock-dev"
+TABLE_NAME="${PROJECT_NAME}-terraform-state-lock-${ENVIRONMENT}"
 
 echo "Creating S3 bucket for Terraform state..."
 aws s3api create-bucket \

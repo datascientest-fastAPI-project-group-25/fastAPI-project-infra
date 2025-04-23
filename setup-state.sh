@@ -4,7 +4,7 @@
 export AWS_ACCESS_KEY_ID=$(grep AWS_ACCESS_KEY_ID ../.env | cut -d= -f2)
 export AWS_SECRET_ACCESS_KEY=$(grep AWS_SECRET_ACCESS_KEY ../.env | cut -d= -f2)
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ACCOUNT_ID=575977136211
+export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-221082192409}
 export PROJECT_NAME=fastapi-project
 export ENVIRONMENT=dev
 
