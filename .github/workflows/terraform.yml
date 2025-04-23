@@ -30,7 +30,6 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  id-token: write
   contents: read
   pull-requests: write
   actions: write
@@ -91,8 +90,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Print GitHub context and OIDC token details
-      - name: Debug OIDC Claims
+      # Print GitHub context details
+      - name: Debug GitHub Context
         run: |
           echo "Event name: ${{ github.event_name }}"
           echo "Actor: ${{ github.actor }}"
@@ -101,17 +100,14 @@ jobs:
           echo "SHA: ${{ github.sha }}"
           echo "Workflow: ${{ github.workflow }}"
           echo "Environment: ${{ needs.determine_environment.outputs.environment }}"
-          echo "Role to assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-${{ needs.determine_environment.outputs.environment }}"
-          echo "Getting OIDC token..."
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value' | cut -d'.' -f2 | base64 -d | jq .
 
       # Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-${{ needs.determine_environment.outputs.environment }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-          role-session-name: GitHubActions-${{ github.run_id }}
           mask-aws-account-id: 'no'
 
       # Cache Terraform CLI installation
