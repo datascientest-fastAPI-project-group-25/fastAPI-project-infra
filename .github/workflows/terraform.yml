@@ -1,9 +1,11 @@
 name: Terraform Infrastructure Deployment
 
 on:
+  # Only run deployment on merge of PR to main
   push:
     branches:
       - main
+  # Run validation and planning on PRs to main
   pull_request:
     branches:
       - main
@@ -162,6 +164,20 @@ jobs:
           cd terraform
           terraform fmt -check -recursive
 
+      # Verify AWS authentication and permissions during PR
+      - name: Verify AWS Authentication and Permissions - PR
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Verifying AWS authentication and permissions..."
+          aws sts get-caller-identity
+
+          # Check if we have the necessary permissions for deployment
+          for env in stg prod; do
+            echo "Checking permissions for $env environment..."
+            aws s3 ls s3://fastapi-project-terraform-state-${AWS_ACCOUNT_ID}/fastapi/infra/$env/ || echo "Warning: Cannot access state bucket for $env"
+            aws dynamodb describe-table --table-name terraform-state-lock-$env || echo "Warning: Cannot access state lock table for $env"
+          done
+
       # Initialize and plan for both environments on PR
       - name: Initialize and Plan - PR
         if: github.event_name == 'pull_request'
@@ -174,14 +190,35 @@ jobs:
               -backend-config="key=fastapi/infra/$env/terraform.tfstate" \
               -backend-config="region=${AWS_DEFAULT_REGION}" \
               -backend-config="dynamodb_table=terraform-state-lock-$env"
+            terraform validate
             terraform plan -var-file=terraform.tfvars -out=${env}.tfplan
             cd ../../../
           done
+          echo "✅ All environments validated and planned successfully. Ready for deployment!"
 
-      # Initialize and apply for production on main
-      - name: Deploy to Production
+      # Check if this is a PR merge to main
+      - name: Check if PR merge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: check_pr_merge
         run: |
+          # Get the commit message
+          COMMIT_MSG=$(git log -1 --pretty=format:%s)
+          echo "Commit message: $COMMIT_MSG"
+
+          # Check if it's a merge commit from a PR
+          if [[ "$COMMIT_MSG" == "Merge pull request"* ]]; then
+            echo "is_pr_merge=true" >> $GITHUB_OUTPUT
+            echo "✅ This is a PR merge commit"
+          else
+            echo "is_pr_merge=false" >> $GITHUB_OUTPUT
+            echo "⚠️ This is not a PR merge commit, skipping deployment"
+          fi
+
+      # Initialize and apply for production only on merge of PR to main
+      - name: Deploy to Production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_pr_merge.outputs.is_pr_merge == 'true'
+        run: |
+          echo "🚀 Deploying to production after PR merge..."
           cd terraform/environments/deploy/prod
           terraform init \
             -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \

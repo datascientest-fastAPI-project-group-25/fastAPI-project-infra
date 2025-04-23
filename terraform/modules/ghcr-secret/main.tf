@@ -26,7 +26,7 @@ resource "kubernetes_secret" "ghcr_auth" {
     ".dockerconfigjson" = jsonencode({
       auths = {
         "ghcr.io" = {
-          auth = base64encode("${var.github_org}:${data.aws_secretsmanager_secret_version.github_token.secret_string}")
+          auth = base64encode("${var.github_username != "" ? var.github_username : var.github_org}:${data.aws_secretsmanager_secret_version.github_token.secret_string}")
         }
       }
     })

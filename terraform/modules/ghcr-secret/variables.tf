@@ -13,6 +13,12 @@ variable "github_org" {
   type        = string
 }
 
+variable "github_username" {
+  description = "GitHub username for GHCR authentication"
+  type        = string
+  default     = ""  # If not provided, will use github_org
+}
+
 variable "machine_user_token_secret_name" {
   description = "Name of the AWS Secrets Manager secret containing the GitHub Machine User PAT"
   type        = string

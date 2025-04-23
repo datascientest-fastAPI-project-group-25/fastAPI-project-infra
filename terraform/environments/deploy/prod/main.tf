@@ -102,6 +102,7 @@ module "ghcr_auth" {
   environment = "prod"
   namespaces = ["fastapi-helm-prod"]  # Match k8s_resources namespace
   github_org = var.github_org
+  github_username = var.github_username
   machine_user_token_secret_name = "github/machine-user-token"
 
   depends_on = [module.eks]
