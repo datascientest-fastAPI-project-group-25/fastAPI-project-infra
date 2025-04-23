@@ -253,11 +253,71 @@ To further enhance security, consider implementing:
 
 ### GitHub Actions OIDC Verification
 
-1. **Verify IAM Role Setup**:
-   - Ensure the IAM role `github-actions-dev` exists in the new AWS account
-   - Verify the trust relationship is correctly configured for GitHub Actions OIDC
+1. **Run the OIDC Setup Script**:
+   ```bash
+   # Set your AWS account ID
+   export AWS_ACCOUNT_ID=221082192409
+   export AWS_DEFAULT_REGION=us-east-1
 
-2. **Test GitHub Actions Workflow**:
+   # Run the setup script
+   bash scripts/setup-github-oidc-roles.sh
+   ```
+
+   This script will:
+   - Create the GitHub OIDC provider in your AWS account if it doesn't exist
+   - Create IAM roles for each environment (development, staging, production)
+   - Configure the trust relationship to allow GitHub Actions to assume these roles
+   - Attach the necessary permissions to the roles
+
+2. **Verify IAM Role Setup**:
+   ```bash
+   # Verify the roles exist
+   aws iam get-role --role-name github-actions-development
+   aws iam get-role --role-name github-actions-staging
+   aws iam get-role --role-name github-actions-production
+
+   # Verify the trust relationship
+   aws iam get-role --role-name github-actions-development --query 'Role.AssumeRolePolicyDocument'
+   ```
+
+3. **Troubleshooting OIDC Authentication**:
+   If you encounter the error "Could not assume role with OIDC: Not authorized to perform sts:AssumeRoleWithWebIdentity", check the following:
+
+   - Verify that the OIDC provider exists in your AWS account:
+     ```bash
+     aws iam list-open-id-connect-providers
+     ```
+
+   - Verify that the IAM roles exist and have the correct trust relationship:
+     ```bash
+     aws iam get-role --role-name github-actions-development --query 'Role.AssumeRolePolicyDocument'
+     ```
+
+   - Verify that the trust relationship includes the correct repository and branch:
+     ```json
+     {
+         "Version": "2012-10-17",
+         "Statement": [
+             {
+                 "Effect": "Allow",
+                 "Principal": {
+                     "Federated": "arn:aws:iam::221082192409:oidc-provider/token.actions.githubusercontent.com"
+                 },
+                 "Action": "sts:AssumeRoleWithWebIdentity",
+                 "Condition": {
+                     "StringEquals": {
+                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                     },
+                     "StringLike": {
+                         "token.actions.githubusercontent.com:sub": "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:*"
+                     }
+                 }
+             }
+         ]
+     }
+     ```
+
+4. **Test GitHub Actions Workflow**:
    - Trigger a workflow run to verify that the GitHub Actions can successfully authenticate with AWS
    - Monitor for any issues with the OIDC authentication
 
