@@ -12,7 +12,7 @@ provider "aws" {
 module "vpc" {
   source       = "../../../modules/vpc"
   aws_region   = var.aws_region
-  environment  = "staging"
+  environment  = "stg"
   project_name = var.project_name
   vpc_cidr     = var.vpc_cidr
 }
@@ -21,7 +21,7 @@ module "vpc" {
 module "security" {
   source              = "../../../modules/security"
   vpc_id              = module.vpc.vpc_id
-  environment         = "staging"
+  environment         = "stg"
   project_name        = var.project_name
   allowed_cidr_blocks = var.allowed_cidr_blocks
 
@@ -32,7 +32,7 @@ module "security" {
 module "eks" {
   source       = "../../../modules/eks"
   aws_region   = var.aws_region
-  environment  = "staging"
+  environment  = "stg"
   project_name = var.project_name
   vpc_id       = module.vpc.vpc_id
   subnet_ids   = module.vpc.private_subnets
@@ -53,7 +53,7 @@ module "eks" {
 module "rds" {
   source                 = "../../../modules/rds"
   project_name           = var.project_name
-  environment           = "staging"
+  environment           = "stg"
   vpc_id                = module.vpc.vpc_id
   db_subnet_group_name  = module.vpc.db_subnet_group_name
   eks_security_group_ids = [module.security.private_security_group_id]
@@ -93,7 +93,7 @@ provider "helm" {
 # Configure GHCR authentication for pulling images
 module "ghcr_auth" {
   source = "../../../modules/ghcr-secret"
-  environment = "staging"
+  environment = "stg"
   namespaces = ["fastapi-helm-stg"]  # Match k8s_resources namespace
   github_org = var.github_org
   machine_user_token_secret_name = "github/machine-user-token"
@@ -104,7 +104,7 @@ module "ghcr_auth" {
 # Deploy Kubernetes resources using our custom module
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
-  environment     = "staging"
+  environment     = "stg"
   namespace       = "fastapi-helm-stg"  # Keep namespace consistent
   github_username = var.github_username
   github_token    = var.github_token
@@ -121,7 +121,7 @@ module "k8s_resources" {
 # Deploy ArgoCD using our custom module
 module "argocd" {
   source                                 = "../../../modules/argo"
-  environment                            = "staging"
+  environment                            = "stg"
   project_name                           = var.project_name
   eks_cluster_endpoint                   = module.eks.cluster_endpoint
   eks_cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
@@ -136,7 +136,7 @@ module "argocd" {
 module "external_secrets" {
   source               = "../../../modules/external-secrets"
   project_name         = var.project_name
-  environment          = "staging"
+  environment          = "stg"
   region               = var.aws_region
   eks_oidc_provider    = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
@@ -147,7 +147,7 @@ module "external_secrets" {
 # Configure GitHub Actions OIDC
 module "github_actions_oidc" {
   source          = "../../../modules/github-actions-oidc"
-  environment     = "staging"
+  environment     = "stg"
   github_org      = var.github_org
   github_username = var.github_username
   github_token    = var.github_token
