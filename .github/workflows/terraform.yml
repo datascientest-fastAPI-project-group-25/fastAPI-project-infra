@@ -58,14 +58,18 @@ jobs:
         id: set_env
         run: |
           if [[ "${{ github.event.inputs.environment }}" != "" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            if [[ "${{ github.event.inputs.environment }}" == "stg" ]]; then
+              echo "environment=staging" >> $GITHUB_OUTPUT
+            else
+              echo "environment=production" >> $GITHUB_OUTPUT
+            fi
             exit 0
           fi
 
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "environment=production" >> $GITHUB_OUTPUT
           else
-            echo "environment=stg" >> $GITHUB_OUTPUT
+            echo "environment=staging" >> $GITHUB_OUTPUT
           fi
 
   terraform:
@@ -166,15 +170,21 @@ jobs:
       - name: Initialize and Plan - PR
         if: github.event_name == 'pull_request'
         run: |
-          for env in stg prod; do
-            echo "Planning changes for $env environment..."
-            cd terraform/environments/deploy/$env
+          # Map short names to directory names
+          declare -A env_dirs
+          env_dirs[staging]=stg
+          env_dirs[production]=prod
+
+          for env in staging production; do
+            dir=${env_dirs[$env]}
+            echo "Planning changes for $env environment (directory: $dir)..."
+            cd terraform/environments/deploy/$dir
             terraform init \
               -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-              -backend-config="key=fastapi/infra/$env/terraform.tfstate" \
+              -backend-config="key=fastapi/infra/$dir/terraform.tfstate" \
               -backend-config="region=${AWS_DEFAULT_REGION}" \
-              -backend-config="dynamodb_table=terraform-state-lock-$env"
-            terraform plan -var-file=terraform.tfvars -out=${env}.tfplan
+              -backend-config="dynamodb_table=terraform-state-lock-$dir"
+            terraform plan -var-file=terraform.tfvars -out=${dir}.tfplan
             cd ../../../
           done
 
@@ -182,6 +192,7 @@ jobs:
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Production environment uses the 'prod' directory
           cd terraform/environments/deploy/prod
           terraform init \
             -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
@@ -201,10 +212,16 @@ jobs:
             const fs = require('fs');
             let comment = '## Terraform Plan Output\n\n';
 
+            // Map environment names to display names
+            const envDisplayNames = {
+              'stg': 'STAGING',
+              'prod': 'PRODUCTION'
+            };
+
             for (const env of ['stg', 'prod']) {
               const planPath = `terraform/environments/deploy/${env}/${env}.tfplan`;
               if (fs.existsSync(planPath)) {
-                comment += `### ${env.toUpperCase()} Environment\n\`\`\`hcl\n`;
+                comment += `### ${envDisplayNames[env]} Environment\n\`\`\`hcl\n`;
                 comment += fs.readFileSync(planPath, 'utf8');
                 comment += '\n\`\`\`\n\n';
               }
