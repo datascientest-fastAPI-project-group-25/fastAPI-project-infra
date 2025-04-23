@@ -1,8 +1,8 @@
 # Production Environment Configuration
 
 terraform {
-  # Using local backend for production
-  backend "local" {}
+  # Using S3 backend for production
+  backend "s3" {}
 }
 
 # AWS provider configuration

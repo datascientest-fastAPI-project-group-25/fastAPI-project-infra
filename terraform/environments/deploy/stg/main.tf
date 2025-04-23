@@ -1,7 +1,7 @@
 # Staging Environment Configuration
 
 terraform {
-  backend "local" {}
+  backend "s3" {}
 }
 
 provider "aws" {
