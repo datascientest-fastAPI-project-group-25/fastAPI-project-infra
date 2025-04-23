@@ -36,11 +36,9 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            # This condition allows PRs and pushes from our repository
             "token.actions.githubusercontent.com:sub" = [
-              "repo:${var.github_org}/*:pull_request",
-              "repo:${var.github_org}/*:ref:refs/heads/*",
-              "repo:${var.github_org}/*:ref:refs/pull/*/merge"
+              "repo:${var.github_org}/*:ref:refs/pull/*/merge",
+              "repo:${var.github_org}/*:ref:refs/heads/*"
             ]
           }
         }
