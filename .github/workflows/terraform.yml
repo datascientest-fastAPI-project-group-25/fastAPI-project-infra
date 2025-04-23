@@ -73,11 +73,11 @@ jobs:
     needs: determine_environment
     runs-on: ubuntu-latest
     env:
-      AWS_ACCOUNT_ID: "575977136211"
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_DEFAULT_REGION: "us-east-1"
       PROJECT_NAME: "fastapi-project"
       ENVIRONMENT: ${{ needs.determine_environment.outputs.environment }}
-      TF_VAR_aws_account_id: "575977136211"
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
       TF_VAR_github_org: "datascientest-fastAPI-project-group-25"
       TF_INPUT: false
@@ -200,7 +200,7 @@ jobs:
           script: |
             const fs = require('fs');
             let comment = '## Terraform Plan Output\n\n';
-            
+
             for (const env of ['stg', 'prod']) {
               const planPath = `terraform/environments/deploy/${env}/${env}.tfplan`;
               if (fs.existsSync(planPath)) {
@@ -209,7 +209,7 @@ jobs:
                 comment += '\n\`\`\`\n\n';
               }
             }
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
