@@ -172,15 +172,23 @@ jobs:
           env_dirs[staging]=stg
           env_dirs[production]=prod
 
+          # Create backend config files
+          mkdir -p /tmp/backend-configs
+
           for env in staging production; do
             dir=${env_dirs[$env]}
             echo "Planning changes for $env environment (directory: $dir)..."
+
+            # Create backend config file
+            cat > /tmp/backend-configs/${dir}.tfbackend << EOF
+            bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+            key = "fastapi/infra/$dir/terraform.tfstate"
+            region = "${AWS_DEFAULT_REGION}"
+            dynamodb_table = "terraform-state-lock-$dir"
+            EOF
+
             cd terraform/environments/deploy/$dir
-            terraform init \
-              -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-              -backend-config="key=fastapi/infra/$dir/terraform.tfstate" \
-              -backend-config="region=${AWS_DEFAULT_REGION}" \
-              -backend-config="dynamodb_table=terraform-state-lock-$dir"
+            terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
             terraform plan -var-file=terraform.tfvars -out=${dir}.tfplan
             cd ../../../
           done
@@ -189,12 +197,17 @@ jobs:
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Create backend config file
+          mkdir -p /tmp/backend-configs
+          cat > /tmp/backend-configs/prod.tfbackend << EOF
+          bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
+          key = "fastapi/infra/prod/terraform.tfstate"
+          region = "${AWS_DEFAULT_REGION}"
+          dynamodb_table = "terraform-state-lock-prod"
+          EOF
+
           cd terraform/environments/deploy/prod
-          terraform init \
-            -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
-            -backend-config="key=fastapi/infra/prod/terraform.tfstate" \
-            -backend-config="region=${AWS_DEFAULT_REGION}" \
-            -backend-config="dynamodb_table=terraform-state-lock-prod"
+          terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
           terraform plan -var-file=terraform.tfvars -out=tfplan
           terraform apply -auto-approve tfplan
 
