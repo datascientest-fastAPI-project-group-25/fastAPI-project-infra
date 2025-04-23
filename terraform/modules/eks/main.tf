@@ -51,6 +51,9 @@ module "eks" {
       min_size       = var.min_size
       instance_types = var.instance_types
 
+      # Use spot instances for cost optimization if enabled
+      capacity_type  = var.use_spot_instances ? "SPOT" : "ON_DEMAND"
+
       labels = {
         Environment = var.environment
       }
@@ -59,6 +62,9 @@ module "eks" {
         Environment = var.environment
         Project     = var.project_name
         Terraform   = "true"
+        CostCenter  = "Engineering"
+        Team        = "DevOps"
+        ManagedBy   = "Terraform"
       }
     }
   }
@@ -67,7 +73,8 @@ module "eks" {
     Environment = var.environment
     Project     = var.project_name
     Terraform   = "true"
+    CostCenter  = "Engineering"
+    Team        = "DevOps"
+    ManagedBy   = "Terraform"
   }
 }
-
-
