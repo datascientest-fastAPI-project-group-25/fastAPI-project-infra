@@ -112,8 +112,6 @@ module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
   environment     = "prod"
   namespace       = "fastapi-helm-prod"  # Keep namespace consistent
-  github_username = var.github_username
-  github_token    = var.github_token
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name

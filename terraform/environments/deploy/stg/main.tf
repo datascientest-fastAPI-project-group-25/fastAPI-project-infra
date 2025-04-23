@@ -46,6 +46,10 @@ module "eks" {
   min_size        = var.eks_node_group_min_size
   max_size        = var.eks_node_group_max_size
 
+  # Enable cost optimization for staging environment
+  enable_cost_optimization = true
+  use_spot_instances       = true
+
   depends_on = [module.vpc, module.security]
 }
 
@@ -106,8 +110,6 @@ module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
   environment     = "stg"
   namespace       = "fastapi-helm-stg"  # Keep namespace consistent
-  github_username = var.github_username
-  github_token    = var.github_token
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name

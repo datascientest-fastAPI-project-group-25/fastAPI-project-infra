@@ -3,17 +3,6 @@ variable "namespace" {
   type        = string
 }
 
-variable "github_username" {
-  description = "GitHub username for Container Registry authentication"
-  type        = string
-  sensitive   = true
-}
-
-variable "github_token" {
-  description = "GitHub token for Container Registry authentication"
-  type        = string
-  sensitive   = true
-}
 
 variable "db_username" {
   description = "Database username"

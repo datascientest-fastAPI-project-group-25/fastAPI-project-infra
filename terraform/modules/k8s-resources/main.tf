@@ -8,27 +8,8 @@ resource "kubernetes_namespace" "fastapi" {
   }
 }
 
-# Create a secret for GitHub Container Registry credentials
-resource "kubernetes_secret" "ghcr_secret" {
-  count = var.github_username != "" && var.github_token != "" ? 1 : 0
-
-  metadata {
-    name      = "ghcr-legacy-secret"  # Renamed to avoid conflict with new ghcr-secret module
-    namespace = kubernetes_namespace.fastapi.metadata[0].name
-  }
-
-  type = "kubernetes.io/dockerconfigjson"
-
-  data = {
-    ".dockerconfigjson" = jsonencode({
-      auths = {
-        "ghcr.io" = {
-          auth = base64encode("${var.github_username}:${var.github_token}")
-        }
-      }
-    })
-  }
-}
+# Legacy GHCR secret creation removed - now using the ghcr-secret module instead
+# which creates a secret named "ghcr-secret" using GitHub PAT from AWS Secrets Manager
 
 # Create a secret for database credentials
 resource "kubernetes_secret" "db_secret" {
