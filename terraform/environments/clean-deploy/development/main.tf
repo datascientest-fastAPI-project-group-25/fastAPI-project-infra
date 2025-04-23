@@ -7,7 +7,7 @@ module "iam" {
   project_name     = var.project_name
   aws_region       = var.aws_region
   github_org       = var.github_org
-  state_bucket_name = "fastapi-project-terraform-state-575977136211"
+  state_bucket_name = "fastapi-project-terraform-state-${var.aws_account_id}"
   lock_table_name  = "terraform-state-lock"
 }
 
@@ -94,13 +94,14 @@ module "external_secrets" {
 }
 
 # Configure GitHub Container Registry Access with OIDC
-module "ghcr_access" {
-  source          = "../../../modules/ghcr-access"
-  environment     = "dev2"
+module "github_actions_oidc" {
+  source          = "../../../modules/github-actions-oidc"
+  environment     = "development"
   github_org      = var.github_org
   github_username = var.github_username
-  github_token    = var.github_token  # Kept as fallback
-  eks_role_arn    = module.eks.worker_iam_role_arn  # Kept as fallback
+  github_token    = var.github_token
+  eks_role_arn    = module.eks.worker_iam_role_arn
+  namespaces      = ["fastapi-helm"]  # Match k8s_resources namespace
 
-  depends_on = [module.eks, module.k8s_resources]
+  depends_on = [module.eks]
 }
