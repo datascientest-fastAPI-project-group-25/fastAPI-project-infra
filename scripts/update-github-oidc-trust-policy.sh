@@ -28,9 +28,9 @@ GITHUB_REPO="datascientest-fastAPI-project-group-25/fastAPI-project-infra"
 update_github_actions_role_trust_policy() {
     local environment=$1
     local role_name="github-actions-${environment}"
-    
+
     echo "Updating trust policy for IAM role: ${role_name}..."
-    
+
     # Create trust policy document
     cat > trust-policy.json << EOF
 {
@@ -50,6 +50,7 @@ update_github_actions_role_trust_policy() {
                     "token.actions.githubusercontent.com:sub": [
                         "repo:${GITHUB_REPO}:ref:refs/heads/main",
                         "repo:${GITHUB_REPO}:ref:refs/heads/feat/*",
+                        "repo:${GITHUB_REPO}:ref:refs/pull/*",
                         "repo:${GITHUB_REPO}:pull_request"
                     ]
                 }
@@ -58,13 +59,13 @@ update_github_actions_role_trust_policy() {
     ]
 }
 EOF
-    
+
     # Update trust policy
     aws iam update-assume-role-policy --role-name "${role_name}" --policy-document file://trust-policy.json --no-cli-pager
-    
+
     # Clean up
     rm trust-policy.json
-    
+
     echo "Trust policy for IAM role ${role_name} updated successfully."
 }
 

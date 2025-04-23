@@ -100,6 +100,8 @@ jobs:
           echo "Ref: ${{ github.ref }}"
           echo "SHA: ${{ github.sha }}"
           echo "Workflow: ${{ github.workflow }}"
+          echo "Environment: ${{ needs.determine_environment.outputs.environment }}"
+          echo "Role to assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-${{ needs.determine_environment.outputs.environment }}"
           echo "Getting OIDC token..."
           curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value' | cut -d'.' -f2 | base64 -d | jq .
 
@@ -109,6 +111,8 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-${{ needs.determine_environment.outputs.environment }}
           aws-region: us-east-1
+          role-session-name: GitHubActions-${{ github.run_id }}
+          mask-aws-account-id: 'no'
 
       # Cache Terraform CLI installation
       - name: Cache Terraform CLI
@@ -192,7 +196,6 @@ jobs:
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          # Production environment uses the 'prod' directory
           cd terraform/environments/deploy/prod
           terraform init \
             -backend-config="bucket=fastapi-project-terraform-state-${AWS_ACCOUNT_ID}" \
@@ -212,16 +215,10 @@ jobs:
             const fs = require('fs');
             let comment = '## Terraform Plan Output\n\n';
 
-            // Map environment names to display names
-            const envDisplayNames = {
-              'stg': 'STAGING',
-              'prod': 'PRODUCTION'
-            };
-
             for (const env of ['stg', 'prod']) {
               const planPath = `terraform/environments/deploy/${env}/${env}.tfplan`;
               if (fs.existsSync(planPath)) {
-                comment += `### ${envDisplayNames[env]} Environment\n\`\`\`hcl\n`;
+                comment += `### ${env.toUpperCase()} Environment\n\`\`\`hcl\n`;
                 comment += fs.readFileSync(planPath, 'utf8');
                 comment += '\n\`\`\`\n\n';
               }
