@@ -52,7 +52,7 @@ module "eks" {
       instance_types = var.instance_types
 
       # Use spot instances for cost optimization if enabled
-      capacity_type  = var.use_spot_instances ? "SPOT" : "ON_DEMAND"
+      capacity_type = var.use_spot_instances ? "SPOT" : "ON_DEMAND"
 
       labels = {
         Environment = var.environment

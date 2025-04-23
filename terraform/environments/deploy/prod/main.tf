@@ -98,10 +98,10 @@ provider "helm" {
 
 # Configure GHCR authentication for pulling images
 module "ghcr_auth" {
-  source = "../../../modules/ghcr-secret"
-  environment = "prod"
-  namespaces = ["fastapi-helm-prod"]  # Match k8s_resources namespace
-  github_org = var.github_org
+  source                         = "../../../modules/ghcr-secret"
+  environment                    = "prod"
+  namespaces                     = ["fastapi-helm-prod"] # Match k8s_resources namespace
+  github_org                     = var.github_org
   machine_user_token_secret_name = "github/machine-user-token"
 
   depends_on = [module.eks]
@@ -111,7 +111,7 @@ module "ghcr_auth" {
 module "k8s_resources" {
   source          = "../../../modules/k8s-resources"
   environment     = "prod"
-  namespace       = "fastapi-helm-prod"  # Keep namespace consistent
+  namespace       = "fastapi-helm-prod" # Keep namespace consistent
   db_username     = var.db_username
   db_password     = var.db_password
   db_name         = var.db_name
@@ -138,11 +138,11 @@ module "argocd" {
 
 # Deploy External Secrets Operator
 module "external_secrets" {
-  source               = "../../../modules/external-secrets"
-  project_name         = var.project_name
-  environment          = "prod"
-  region               = var.aws_region
-  eks_oidc_provider    = module.eks.oidc_provider
+  source                = "../../../modules/external-secrets"
+  project_name          = var.project_name
+  environment           = "prod"
+  region                = var.aws_region
+  eks_oidc_provider     = module.eks.oidc_provider
   eks_oidc_provider_arn = module.eks.oidc_provider_arn
 
   depends_on = [module.eks]
@@ -150,11 +150,11 @@ module "external_secrets" {
 
 # Configure GitHub Actions OIDC
 module "github_actions_oidc" {
-  source          = "../../../modules/github-actions-oidc"
-  environment     = "prod"
-  github_org      = var.github_org
-  github_repo     = var.github_repo # Add missing variable
-  namespaces      = ["fastapi-helm-prod"]  # Match k8s_resources namespace
+  source      = "../../../modules/github-actions-oidc"
+  environment = "prod"
+  github_org  = var.github_org
+  github_repo = var.github_repo       # Add missing variable
+  namespaces  = ["fastapi-helm-prod"] # Match k8s_resources namespace
 
   depends_on = [module.eks]
 }
