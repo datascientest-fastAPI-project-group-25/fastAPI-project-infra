@@ -111,6 +111,8 @@ jobs:
           echo "[default]" > ~/.aws/config
           echo "region=us-east-1" >> ~/.aws/config
           echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
           echo "Using AWS account ID: ${{ secrets.AWS_ACCOUNT_ID }}"
 
@@ -184,6 +186,8 @@ jobs:
             echo "key = \"fastapi/infra/$dir/terraform.tfstate\"" >> /tmp/backend-configs/${dir}.tfbackend
             echo "region = \"${AWS_DEFAULT_REGION}\"" >> /tmp/backend-configs/${dir}.tfbackend
             echo "dynamodb_table = \"terraform-state-lock\"" >> /tmp/backend-configs/${dir}.tfbackend
+            echo "access_key = \"$AWS_ACCESS_KEY_ID\"" >> /tmp/backend-configs/${dir}.tfbackend
+            echo "secret_key = \"$AWS_SECRET_ACCESS_KEY\"" >> /tmp/backend-configs/${dir}.tfbackend
 
             cd terraform/environments/deploy/$dir
             terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
@@ -203,6 +207,8 @@ jobs:
           echo "key = \"fastapi/infra/prod/terraform.tfstate\"" >> /tmp/backend-configs/prod.tfbackend
           echo "region = \"${AWS_DEFAULT_REGION}\"" >> /tmp/backend-configs/prod.tfbackend
           echo "dynamodb_table = \"terraform-state-lock\"" >> /tmp/backend-configs/prod.tfbackend
+          echo "access_key = \"$AWS_ACCESS_KEY_ID\"" >> /tmp/backend-configs/prod.tfbackend
+          echo "secret_key = \"$AWS_SECRET_ACCESS_KEY\"" >> /tmp/backend-configs/prod.tfbackend
 
           cd terraform/environments/deploy/prod
           terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
