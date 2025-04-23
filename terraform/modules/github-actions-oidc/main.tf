@@ -21,9 +21,7 @@ resource "aws_iam_role" "github_actions" {
   name = "github-actions-${var.environment}"
   description = "IAM role for GitHub Actions OIDC authentication for ${var.environment} environment"
 
-  # This trust policy allows GitHub Actions to assume this role using OIDC
-  # It restricts access to only repositories in the specified GitHub organization
-  # and only for specific environments or branches if needed
+  # Trust policy that allows GitHub Actions to assume this role using OIDC
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -38,20 +36,17 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            # Allow both pull requests and direct pushes to branches
+            # This condition allows PRs and pushes from our repository
             "token.actions.githubusercontent.com:sub" = [
-              "repo:${var.github_org}/*:ref:refs/heads/*",
               "repo:${var.github_org}/*:pull_request",
-              "repo:${var.github_org}/*:environment:${var.environment}"
+              "repo:${var.github_org}/*:ref:refs/heads/*",
+              "repo:${var.github_org}/*:ref:refs/pull/*/merge"
             ]
           }
         }
       }
     ]
   })
-
-  # Maximum session duration for the role (1 hour)
-  max_session_duration = 3600
 
   tags = {
     Name        = "github-actions-${var.environment}"
@@ -105,8 +100,13 @@ resource "aws_iam_role_policy_attachment" "github_ecr_attachment" {
   policy_arn = aws_iam_policy.github_ecr_policy.arn
 }
 
+# Add additional permissions for infrastructure management
+resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"  # This gives broad access - consider restricting further
+}
+
 # Create Kubernetes service account for pulling images
-# This service account is used by pods to authenticate with ECR
 resource "kubernetes_service_account" "ghcr_service_account" {
   for_each = toset(var.namespaces)
 
@@ -115,7 +115,6 @@ resource "kubernetes_service_account" "ghcr_service_account" {
     namespace = each.value
     annotations = {
       # This annotation links the service account to the IAM role
-      # It enables IAM Roles for Service Accounts (IRSA) in EKS
       "eks.amazonaws.com/role-arn" = aws_iam_role.github_actions.arn
     }
     labels = {
@@ -126,7 +125,6 @@ resource "kubernetes_service_account" "ghcr_service_account" {
 }
 
 # Create Kubernetes role for OIDC authentication
-# This role defines the permissions for the service account
 resource "kubernetes_role" "ghcr_role" {
   for_each = toset(var.namespaces)
 
@@ -139,8 +137,6 @@ resource "kubernetes_role" "ghcr_role" {
     }
   }
 
-  # These permissions allow the service account to get information about pods and service accounts
-  # This is needed for the GitHub Actions workflow to interact with the cluster
   rule {
     api_groups = [""]
     resources  = ["serviceaccounts", "pods"]
@@ -148,8 +144,7 @@ resource "kubernetes_role" "ghcr_role" {
   }
 }
 
-# Create Kubernetes role binding for OIDC authentication
-# This role binding associates the role with the service account
+# Create Kubernetes role binding
 resource "kubernetes_role_binding" "ghcr_role_binding" {
   for_each = toset(var.namespaces)
 
@@ -162,14 +157,12 @@ resource "kubernetes_role_binding" "ghcr_role_binding" {
     }
   }
 
-  # Reference to the role we created above
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
     name      = kubernetes_role.ghcr_role[each.value].metadata[0].name
   }
 
-  # Reference to the service account that will use this role
   subject {
     kind      = "ServiceAccount"
     name      = kubernetes_service_account.ghcr_service_account[each.value].metadata[0].name
