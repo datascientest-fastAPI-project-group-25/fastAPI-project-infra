@@ -48,25 +48,6 @@ update_github_actions_role_trust_policy() {
                     "token.actions.githubusercontent.com:sub": "repo:${GITHUB_REPO}:pull_request"
                 }
             }
-        },
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "Federated": "arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
-            },
-            "Action": "sts:AssumeRoleWithWebIdentity",
-            "Condition": {
-                "StringEquals": {
-                    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-                },
-                "StringLike": {
-                    "token.actions.githubusercontent.com:sub": [
-                        "repo:${GITHUB_REPO}:ref:refs/heads/main",
-                        "repo:${GITHUB_REPO}:ref:refs/heads/feat/*",
-                        "repo:${GITHUB_REPO}:ref:refs/pull/*"
-                    ]
-                }
-            }
         }
     ]
 }

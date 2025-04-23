@@ -310,34 +310,12 @@ To further enhance security, consider implementing:
                        "token.actions.githubusercontent.com:sub": "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:pull_request"
                    }
                }
-           },
-           {
-               "Effect": "Allow",
-               "Principal": {
-                   "Federated": "arn:aws:iam::221082192409:oidc-provider/token.actions.githubusercontent.com"
-               },
-               "Action": "sts:AssumeRoleWithWebIdentity",
-               "Condition": {
-                   "StringEquals": {
-                       "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-                   },
-                   "StringLike": {
-                       "token.actions.githubusercontent.com:sub": [
-                           "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/heads/main",
-                           "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/heads/feat/*",
-                           "repo:datascientest-fastAPI-project-group-25/fastAPI-project-infra:ref:refs/pull/*"
-                       ]
-                   }
-               }
            }
        ]
    }
    ```
 
-   This trust policy allows GitHub Actions to assume the IAM roles when running workflows from:
-   - The `main` branch
-   - Any branch starting with `feat/`
-   - Any pull request
+   This trust policy allows GitHub Actions to assume the IAM roles when running workflows from pull requests.
 
    You can verify that the trust policy has been updated correctly:
 
