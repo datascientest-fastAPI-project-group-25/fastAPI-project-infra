@@ -79,6 +79,7 @@ jobs:
       ENVIRONMENT: ${{ needs.determine_environment.outputs.environment }}
       TF_VAR_aws_account_id: "575977136211"
       TF_VAR_github_repo: ${{ github.repository }}
+      TF_VAR_github_org: "datascientest-fastAPI-project-group-25"
       TF_INPUT: false
       TF_IN_AUTOMATION: true
 
@@ -88,9 +89,6 @@ jobs:
 
       # Print GitHub context and OIDC token details
       - name: Debug OIDC Claims
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: |
           echo "Event name: ${{ github.event_name }}"
           echo "Actor: ${{ github.actor }}"
@@ -98,9 +96,8 @@ jobs:
           echo "Ref: ${{ github.ref }}"
           echo "SHA: ${{ github.sha }}"
           echo "Workflow: ${{ github.workflow }}"
-          TOKEN=$(curl -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
-          echo "Token payload:"
-          echo $TOKEN | jq -r '.value' | cut -d'.' -f2 | base64 -d | jq .
+          echo "Getting OIDC token..."
+          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value' | cut -d'.' -f2 | base64 -d | jq .
 
       # Configure AWS credentials
       - name: Configure AWS credentials
