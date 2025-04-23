@@ -51,20 +51,17 @@ jobs:
       - name: Generate cache key
         id: cache_key
         run: |
-          # Create hash from terraform files and workflow
           HASH=$(find . -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -exec sha256sum {} \; | sha256sum | cut -d ' ' -f1)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
       - name: Set environment based on context
         id: set_env
         run: |
-          # First check for manual workflow input
           if [[ "${{ github.event.inputs.environment }}" != "" ]]; then
             echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Then check branch for automatic environment selection
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=prod" >> $GITHUB_OUTPUT
           else
@@ -88,6 +85,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Print GitHub context and OIDC token details
+      - name: Debug OIDC Claims
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Workflow: ${{ github.workflow }}"
+          curl -H "Authorization: bearer ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}" "${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}&audience=sts.amazonaws.com" | jq .value | cut -d'.' -f2 | base64 -d 2>/dev/null | jq .
 
       # Cache Terraform CLI installation
       - name: Cache Terraform CLI
