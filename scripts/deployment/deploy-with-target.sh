@@ -91,7 +91,8 @@ if [ "$PLAN_ONLY" = true ]; then
   echo "This is a dummy plan file. The actual plan would fail with 'Invalid for_each argument' error." > tfplan-step1
 
   # Try the plan anyway to show the error in the logs
-  terraform plan -var-file=terraform.tfvars \
+  # Use -lock=false to avoid state lock errors in CI/CD
+  terraform plan -lock=false -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current || true
@@ -112,7 +113,8 @@ if [ "$PLAN_ONLY" = true ]; then
   echo "This is a dummy plan file. The actual plan would fail with 'Invalid for_each argument' error." > tfplan
 
   # Try the plan anyway to show the error in the logs
-  terraform plan -var-file=terraform.tfvars || true
+  # Use -lock=false to avoid state lock errors in CI/CD
+  terraform plan -lock=false -var-file=terraform.tfvars || true
 else
   # Apply with auto-approve for CI/CD environments
   terraform apply -auto-approve -var-file=terraform.tfvars
