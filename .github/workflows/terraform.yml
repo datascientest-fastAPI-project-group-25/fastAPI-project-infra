@@ -165,51 +165,39 @@ jobs:
           cd terraform
           terraform fmt -check -recursive
 
-      # Initialize and plan for both environments on PR
+      # Initialize and plan for both environments on PR using our deploy-with-target.sh script
       - name: Initialize and Plan - PR
         if: github.event_name == 'pull_request'
         run: |
+          # Make scripts executable
+          chmod +x scripts/deployment/deploy-with-target.sh
+
           # Map short names to directory names
           declare -A env_dirs
           env_dirs[staging]=stg
           env_dirs[production]=prod
 
-          # Create backend config files
-          mkdir -p /tmp/backend-configs
-
           for env in staging production; do
             dir=${env_dirs[$env]}
             echo "Planning changes for $env environment (directory: $dir)..."
 
-            # Create backend config file without heredoc
-            echo "bucket = \"fastapi-project-terraform-state-${AWS_ACCOUNT_ID}\"" > /tmp/backend-configs/${dir}.tfbackend
-            echo "key = \"fastapi/infra/$dir/terraform.tfstate\"" >> /tmp/backend-configs/${dir}.tfbackend
-            echo "region = \"${AWS_DEFAULT_REGION}\"" >> /tmp/backend-configs/${dir}.tfbackend
-            echo "dynamodb_table = \"terraform-state-lock\"" >> /tmp/backend-configs/${dir}.tfbackend
+            # Use our deploy-with-target.sh script in plan-only mode
+            scripts/deployment/deploy-with-target.sh $dir $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION --plan-only
 
-            cd terraform/environments/deploy/$dir
-            terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
-            terraform plan -var-file=terraform.tfvars -out=${dir}.tfplan
-            cd ../../../
+            # Copy the plan files to the expected location for the PR comment
+            cp terraform/environments/deploy/$dir/tfplan-step1 terraform/environments/deploy/$dir/$dir-step1.tfplan
+            cp terraform/environments/deploy/$dir/tfplan terraform/environments/deploy/$dir/$dir.tfplan
           done
 
-      # Initialize and apply for production on main
+      # Initialize and apply for production on main using our deploy-with-target.sh script
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          # Create backend config file
-          mkdir -p /tmp/backend-configs
+          # Make scripts executable
+          chmod +x scripts/deployment/deploy-with-target.sh
 
-          # Create backend config file without heredoc
-          echo "bucket = \"fastapi-project-terraform-state-${AWS_ACCOUNT_ID}\"" > /tmp/backend-configs/prod.tfbackend
-          echo "key = \"fastapi/infra/prod/terraform.tfstate\"" >> /tmp/backend-configs/prod.tfbackend
-          echo "region = \"${AWS_DEFAULT_REGION}\"" >> /tmp/backend-configs/prod.tfbackend
-          echo "dynamodb_table = \"terraform-state-lock\"" >> /tmp/backend-configs/prod.tfbackend
-
-          cd terraform/environments/deploy/prod
-          terraform init -backend-config=/tmp/backend-configs/prod.tfbackend
-          terraform plan -var-file=terraform.tfvars -out=tfplan
-          terraform apply -auto-approve tfplan
+          # Use our deploy-with-target.sh script to deploy to production
+          scripts/deployment/deploy-with-target.sh prod $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION
 
       # Comment plan output on PR
       - name: Comment Plan Output
@@ -222,9 +210,18 @@ jobs:
             let comment = '## Terraform Plan Output\n\n';
 
             for (const env of ['stg', 'prod']) {
+              // Step 1 plan (targeted resources)
+              const step1PlanPath = `terraform/environments/deploy/${env}/${env}-step1.tfplan`;
+              if (fs.existsSync(step1PlanPath)) {
+                comment += `### ${env.toUpperCase()} Environment - Step 1 (Targeted Resources)\n\`\`\`hcl\n`;
+                comment += fs.readFileSync(step1PlanPath, 'utf8');
+                comment += '\n\`\`\`\n\n';
+              }
+
+              // Full plan
               const planPath = `terraform/environments/deploy/${env}/${env}.tfplan`;
               if (fs.existsSync(planPath)) {
-                comment += `### ${env.toUpperCase()} Environment\n\`\`\`hcl\n`;
+                comment += `### ${env.toUpperCase()} Environment - Full Plan\n\`\`\`hcl\n`;
                 comment += fs.readFileSync(planPath, 'utf8');
                 comment += '\n\`\`\`\n\n';
               }
