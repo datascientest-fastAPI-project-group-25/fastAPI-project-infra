@@ -18,3 +18,9 @@ variable "namespaces" {
   type        = list(string)
   default     = ["default"]
 }
+
+variable "create_github_oidc_provider" {
+  description = "Whether to create the GitHub OIDC provider (set to false if it already exists)"
+  type        = bool
+  default     = false
+}

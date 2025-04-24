@@ -80,10 +80,10 @@ terraform init -backend-config=$BACKEND_CONFIG
 
 # First, deploy only the resources that the for_each depends on
 echo "=== Step 1: Deploying resources that for_each depends on ==="
-echo "This step will deploy the IAM roles and other resources that the for_each depends on."
-echo "This will resolve the 'Invalid for_each argument' error."
+echo "This step will deploy the IAM roles, EKS cluster, and other resources that the for_each depends on."
+echo "This will resolve the 'Invalid for_each argument' error and the 'Null value found in list' error."
 
-# Target the IAM roles and other resources that the for_each depends on
+# Target the IAM roles, EKS cluster, and other resources that the for_each depends on
 if [ "$PLAN_ONLY" = true ]; then
   # Plan only - for CI/CD, we'll create a dummy plan file since we know it will fail
   # This allows the workflow to continue for demonstration purposes
@@ -95,11 +95,27 @@ if [ "$PLAN_ONLY" = true ]; then
   terraform plan -lock=false -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
-    -target=module.eks.module.eks.data.aws_caller_identity.current || true
+    -target=module.eks.module.eks.data.aws_caller_identity.current \
+    -target=module.eks \
+    -target=module.vpc \
+    -target=module.security || true
 else
   # Apply with auto-approve for CI/CD environments
-  # Add -lock=false to avoid state lock errors
-  terraform apply -auto-approve -lock=false -var-file=terraform.tfvars \
+
+  # First apply the core infrastructure
+  echo "Applying core infrastructure (VPC, Security Groups)..."
+  terraform apply -auto-approve -var-file=terraform.tfvars \
+    -target=module.vpc \
+    -target=module.security
+
+  # Then apply the EKS cluster
+  echo "Applying EKS cluster..."
+  terraform apply -auto-approve -var-file=terraform.tfvars \
+    -target=module.eks
+
+  # Finally apply the IAM roles
+  echo "Applying IAM roles..."
+  terraform apply -auto-approve -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current
@@ -118,8 +134,7 @@ if [ "$PLAN_ONLY" = true ]; then
   terraform plan -lock=false -var-file=terraform.tfvars || true
 else
   # Apply with auto-approve for CI/CD environments
-  # Add -lock=false to avoid state lock errors
-  terraform apply -auto-approve -lock=false -var-file=terraform.tfvars
+  terraform apply -auto-approve -var-file=terraform.tfvars
 fi
 
 if [ "$PLAN_ONLY" = true ]; then

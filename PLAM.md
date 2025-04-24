@@ -352,6 +352,71 @@ To further enhance security, consider implementing:
    - ❌ Container images do not exist in the GitHub Container Registry. The error message is: `failed to resolve reference "ghcr.io/datascientest-fastapi-project-group-25/fastapi-project-app/backend:latest": ghcr.io/datascientest-fastapi-project-group-25/fastapi-project-app/backend:latest: not found`
    - Inform the application team to build and push the container images to the GitHub Container Registry
 
+## Current Deployment Issues (April 2025)
+
+Based on the error logs from the GitHub Actions workflow, we've identified the following issues that need to be fixed:
+
+1. **Null value found in list** - This is occurring with the Kubernetes and Helm providers, specifically with the `module.eks.cluster_name` value.
+
+2. **Error reading Secrets Manager Secret (github/machine-user-token)** - The GitHub token secret can't be found in AWS Secrets Manager.
+
+3. **Error creating IAM OIDC Provider** - The provider with URL https://token.actions.githubusercontent.com already exists.
+
+### Fix Plan for Current Issues
+
+We'll create a new branch `fix/terraform-deployment-errors` from `main` and implement the following fixes:
+
+#### 1. Fix the OIDC Provider Issue
+
+The error "Provider with url https://token.actions.githubusercontent.com already exists" indicates we're trying to create an OIDC provider that already exists. We need to modify the GitHub Actions OIDC module to check if the provider exists before creating it.
+
+Files to modify:
+- `terraform/modules/github-actions-oidc/variables.tf` - Add a new variable to control provider creation
+- `terraform/modules/github-actions-oidc/main.tf` - Modify to check for existing provider
+- `terraform/modules/github-actions-oidc/outputs.tf` - Update outputs to handle both cases
+- `terraform/environments/deploy/prod/main.tf` - Update module call to use existing provider
+- `terraform/environments/deploy/stg/main.tf` - Update module call to use existing provider
+
+#### 2. Fix the GitHub Token Secret Issue
+
+The error "Error reading Secrets Manager Secret (github/machine-user-token)" indicates the secret doesn't exist in AWS Secrets Manager. We need to:
+
+- Create the secret in AWS Secrets Manager using the AWS CLI
+- Update the GitHub token in the secret
+- Ensure the IAM role has permissions to access the secret
+
+#### 3. Fix the EKS Cluster Name Issue
+
+The "Null value found in list" error with `module.eks.cluster_name` suggests the EKS cluster output is not available when needed. We need to:
+
+- Ensure proper dependency ordering in Terraform
+- Modify the deployment script to ensure the EKS cluster is created before trying to use its outputs
+- Update the Kubernetes and Helm provider configurations to handle potential null values
+
+#### Implementation Steps
+
+1. **Create a new branch**:
+   ```
+   git checkout -b fix/terraform-deployment-errors main
+   ```
+
+2. **Fix the OIDC Provider Issue**:
+   - Update the GitHub Actions OIDC module to check if the provider exists
+   - Modify the module calls in the environment configurations
+
+3. **Fix the GitHub Token Secret Issue**:
+   - Create the AWS Secrets Manager secret for the GitHub token
+   - Update the IAM permissions if needed
+
+4. **Fix the EKS Cluster Name Issue**:
+   - Update the deployment script to ensure proper dependency ordering
+   - Modify the provider configurations to handle null values
+
+5. **Test and Deploy**:
+   - Test the changes in staging
+   - Apply to production if successful
+   - Document the changes and solutions
+
 ## Conclusion
 
 By following this deployment plan, you will be able to successfully deploy the FastAPI project infrastructure to a new AWS account. The plan addresses the hardcoded values in the codebase and provides a step-by-step guide for deploying the infrastructure.
