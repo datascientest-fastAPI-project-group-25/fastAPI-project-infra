@@ -98,8 +98,6 @@ module "k8s_resources" {
   db_password     = var.db_password
   db_name         = var.db_name
   use_external_db = false # Use in-cluster PostgreSQL
-  github_username = var.github_username
-  github_token    = var.github_token
 
   depends_on = [module.eks]
 }
