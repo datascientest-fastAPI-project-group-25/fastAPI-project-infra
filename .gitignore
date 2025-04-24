@@ -30,6 +30,7 @@ terraform-docs.tar.gz
 *.tfvars.json
 !*.tfvars.example
 !terraform.tfvars.example
+!terraform/environments/deploy/*/terraform.tfvars
 
 # Terraform override files
 override.tf
