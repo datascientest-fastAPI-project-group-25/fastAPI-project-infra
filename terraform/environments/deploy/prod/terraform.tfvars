@@ -9,10 +9,10 @@ eks_node_group_instance_types = ["t3.medium"]
 eks_node_group_desired_size = 3
 eks_node_group_min_size = 2
 eks_node_group_max_size = 6
-github_username = "${{ secrets.GITHUB_USERNAME }}"
-github_token = "${{ secrets.GITHUB_TOKEN }}"
-db_username = "${{ secrets.DB_USERNAME }}"
-db_password = "${{ secrets.DB_PASSWORD }}"
+github_username = "placeholder-username"
+github_token = "placeholder-token"
+db_username = "placeholder-db-username"
+db_password = "placeholder-db-password"
 db_name = "postgres"
 
 github_org = "datascientest-fastapi-project-group-25"
