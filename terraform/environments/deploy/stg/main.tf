@@ -55,13 +55,18 @@ module "eks" {
 
 # Using in-cluster PostgreSQL instead of external RDS
 
+# Local variable for cluster name to avoid null value during planning
+locals {
+  cluster_name = coalesce(try(module.eks.cluster_name, ""), "fastapi-eks-stg")
+}
+
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+    args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.aws_region]
   }
 }
 
@@ -72,7 +77,7 @@ provider "helm" {
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
+      args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.aws_region]
     }
   }
 }
