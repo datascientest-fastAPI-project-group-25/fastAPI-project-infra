@@ -231,6 +231,10 @@ To further enhance security, consider implementing:
 3. **EKS Cluster Creation Error**:
    - Check VPC and subnet configuration
    - Verify IAM permissions for EKS cluster creation
+   - For "Invalid for_each argument" errors with the EKS module:
+     - Use the `-target` approach to first apply only the resources that the `for_each` depends on
+     - Example: `terraform apply -target=module.eks.module.eks.aws_iam_role.this[0]`
+     - Then run a full apply: `terraform apply`
 
 4. **ArgoCD Installation Error**:
    - Check Kubernetes configuration
@@ -239,6 +243,15 @@ To further enhance security, consider implementing:
 5. **GitHub Authentication Error**:
    - Verify GitHub token has appropriate permissions
    - Check GitHub organization and repository names
+
+6. **Terraform for_each Error**:
+   - Error message: "The 'for_each' map includes keys derived from resource attributes that cannot be determined until apply"
+   - This occurs when Terraform can't determine the keys for a `for_each` map during the planning phase
+   - Solutions:
+     - Use the `-target` approach to first apply only the resources that the `for_each` depends on
+     - Define static keys in your map and place dynamic values only in the map values
+     - Use conditional creation with `count` instead of `for_each` for simpler cases
+     - Modify the module source code to use a different approach (if possible)
 
 ## Next Steps: GitHub Actions and OIDC Integration
 
