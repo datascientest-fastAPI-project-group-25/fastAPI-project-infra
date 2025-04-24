@@ -101,6 +101,7 @@ if [ "$PLAN_ONLY" = true ]; then
     -target=module.security || true
 else
   # Apply with auto-approve for CI/CD environments
+
   # First apply the core infrastructure
   echo "Applying core infrastructure (VPC, Security Groups)..."
   terraform apply -auto-approve -var-file=terraform.tfvars \
