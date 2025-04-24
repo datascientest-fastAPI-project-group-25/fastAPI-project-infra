@@ -3,13 +3,6 @@
 terraform {
   # Using S3 backend for production
   backend "s3" {}
-
-  required_providers {
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
 }
 
 # AWS provider configuration
