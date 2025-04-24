@@ -96,9 +96,9 @@ if [ "$PLAN_ONLY" = true ]; then
   # Plan only
   terraform plan -destroy -var-file=terraform.tfvars -out=destroy.tfplan
 else
-  # Create a temporary plan file and apply it
+  # Create a temporary plan file and apply it with auto-approve
   terraform plan -destroy -var-file=terraform.tfvars -out=destroy.tfplan
-  terraform apply destroy.tfplan
+  terraform apply -auto-approve destroy.tfplan
 fi
 
 # Now, destroy the remaining resources (IAM roles, etc.)
@@ -113,8 +113,8 @@ if [ "$PLAN_ONLY" = true ]; then
     -target=module.eks.module.eks.data.aws_caller_identity.current \
     -out=destroy-step2.tfplan
 else
-  # Apply
-  terraform destroy -var-file=terraform.tfvars \
+  # Apply with auto-approve for CI/CD environments
+  terraform destroy -auto-approve -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current
@@ -126,8 +126,8 @@ if [ "$PLAN_ONLY" = true ]; then
   # Plan only
   terraform plan -destroy -var-file=terraform.tfvars -out=destroy-final.tfplan
 else
-  # Apply
-  terraform destroy -var-file=terraform.tfvars
+  # Apply with auto-approve for CI/CD environments
+  terraform destroy -auto-approve -var-file=terraform.tfvars
 
   # Clean up
   rm -f destroy.tfplan
