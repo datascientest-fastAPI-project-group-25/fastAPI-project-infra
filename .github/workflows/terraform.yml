@@ -76,11 +76,9 @@ jobs:
     needs: determine_environment
     runs-on: ubuntu-latest
     env:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_DEFAULT_REGION: "us-east-1"
       PROJECT_NAME: "fastapi-project"
       ENVIRONMENT: ${{ needs.determine_environment.outputs.environment }}
-      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
       TF_VAR_github_repo: ${{ github.repository }}
       TF_VAR_github_org: "datascientest-fastAPI-project-group-25"
       TF_INPUT: false
@@ -103,16 +101,20 @@ jobs:
 
       # Configure AWS credentials
       - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Set AWS environment variables
         run: |
-          mkdir -p ~/.aws
-          echo "[default]" > ~/.aws/credentials
-          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
-          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
-          echo "[default]" > ~/.aws/config
-          echo "region=us-east-1" >> ~/.aws/config
-          echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >> $GITHUB_ENV
+          # Get AWS account ID from caller identity
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+          echo "AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID}" >> $GITHUB_ENV
+          echo "TF_VAR_aws_account_id=${AWS_ACCOUNT_ID}" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
-          echo "Using AWS account ID: ${{ secrets.AWS_ACCOUNT_ID }}"
+          echo "Using AWS account ID: ${AWS_ACCOUNT_ID}"
 
       # Cache Terraform CLI installation
       - name: Cache Terraform CLI
@@ -179,13 +181,11 @@ jobs:
             dir=${env_dirs[$env]}
             echo "Planning changes for $env environment (directory: $dir)..."
 
-            # Create backend config file
-            cat > /tmp/backend-configs/${dir}.tfbackend << EOT
-bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-key = "fastapi/infra/$dir/terraform.tfstate"
-region = "${AWS_DEFAULT_REGION}"
-dynamodb_table = "terraform-state-lock-$dir"
-EOT
+            # Create backend config file without heredoc
+            echo "bucket = \"fastapi-project-terraform-state-${AWS_ACCOUNT_ID}\"" > /tmp/backend-configs/${dir}.tfbackend
+            echo "key = \"fastapi/infra/$dir/terraform.tfstate\"" >> /tmp/backend-configs/${dir}.tfbackend
+            echo "region = \"${AWS_DEFAULT_REGION}\"" >> /tmp/backend-configs/${dir}.tfbackend
+            echo "dynamodb_table = \"terraform-state-lock\"" >> /tmp/backend-configs/${dir}.tfbackend
 
             cd terraform/environments/deploy/$dir
             terraform init -backend-config=/tmp/backend-configs/${dir}.tfbackend
@@ -199,12 +199,12 @@ EOT
         run: |
           # Create backend config file
           mkdir -p /tmp/backend-configs
-          cat > /tmp/backend-configs/prod.tfbackend << EOT
-bucket = "fastapi-project-terraform-state-${AWS_ACCOUNT_ID}"
-key = "fastapi/infra/prod/terraform.tfstate"
-region = "${AWS_DEFAULT_REGION}"
-dynamodb_table = "terraform-state-lock-prod"
-EOT
+
+          # Create backend config file without heredoc
+          echo "bucket = \"fastapi-project-terraform-state-${AWS_ACCOUNT_ID}\"" > /tmp/backend-configs/prod.tfbackend
+          echo "key = \"fastapi/infra/prod/terraform.tfstate\"" >> /tmp/backend-configs/prod.tfbackend
+          echo "region = \"${AWS_DEFAULT_REGION}\"" >> /tmp/backend-configs/prod.tfbackend
+          echo "dynamodb_table = \"terraform-state-lock\"" >> /tmp/backend-configs/prod.tfbackend
 
           cd terraform/environments/deploy/prod
           terraform init -backend-config=/tmp/backend-configs/prod.tfbackend

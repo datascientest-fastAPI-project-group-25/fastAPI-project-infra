@@ -97,8 +97,6 @@ module "k8s_resources" {
   db_password     = var.db_password
   db_name         = var.db_name
   use_external_db = false # Use in-cluster PostgreSQL
-  github_username = var.github_username
-  github_token    = var.github_token
 
   depends_on = [module.eks]
 }
@@ -134,6 +132,7 @@ module "github_actions_oidc" {
   source      = "../../../modules/github-actions-oidc"
   environment = "stg"
   github_org  = var.github_org
+  github_repo = var.github_repo
   namespaces  = ["fastapi-helm-stg"] # Match k8s_resources namespace
 
   depends_on = [module.eks]
