@@ -1,10 +1,17 @@
 # GitHub Container Registry Access Module
 # This module sets up OIDC authentication with GitHub for pulling images from GitHub Container Registry
 
-# Create IAM OIDC Provider for GitHub
+# Check if GitHub OIDC provider already exists
+data "aws_iam_openid_connect_provider" "github_existing" {
+  count = var.create_github_oidc_provider ? 0 : 1
+  url   = "https://token.actions.githubusercontent.com"
+}
+
+# Create IAM OIDC Provider for GitHub only if it doesn't exist
 resource "aws_iam_openid_connect_provider" "github" {
-  url            = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
+  count           = var.create_github_oidc_provider ? 1 : 0
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
   # GitHub's OIDC thumbprint - this is the certificate thumbprint for GitHub's OIDC provider
   # This should be updated if GitHub rotates their certificates
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
@@ -28,7 +35,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github_existing[0].arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {

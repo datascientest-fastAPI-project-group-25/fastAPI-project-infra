@@ -130,11 +130,12 @@ module "external_secrets" {
 
 # Configure GitHub Actions OIDC
 module "github_actions_oidc" {
-  source      = "../../../modules/github-actions-oidc"
-  environment = "prod"
-  github_org  = var.github_org
-  github_repo = var.github_repo
-  namespaces  = ["fastapi-helm-prod"] # Match k8s_resources namespace
+  source                    = "../../../modules/github-actions-oidc"
+  environment               = "prod"
+  github_org                = var.github_org
+  github_repo               = var.github_repo
+  namespaces                = ["fastapi-helm-prod"] # Match k8s_resources namespace
+  create_github_oidc_provider = false # Don't create the provider, use existing one
 
   depends_on = [module.eks]
 }
