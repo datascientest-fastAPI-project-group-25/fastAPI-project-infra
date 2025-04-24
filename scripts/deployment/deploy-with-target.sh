@@ -98,7 +98,8 @@ if [ "$PLAN_ONLY" = true ]; then
     -target=module.eks.module.eks.data.aws_caller_identity.current || true
 else
   # Apply with auto-approve for CI/CD environments
-  terraform apply -auto-approve -var-file=terraform.tfvars \
+  # Add -lock=false to avoid state lock errors
+  terraform apply -auto-approve -lock=false -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current
@@ -117,7 +118,8 @@ if [ "$PLAN_ONLY" = true ]; then
   terraform plan -lock=false -var-file=terraform.tfvars || true
 else
   # Apply with auto-approve for CI/CD environments
-  terraform apply -auto-approve -var-file=terraform.tfvars
+  # Add -lock=false to avoid state lock errors
+  terraform apply -auto-approve -lock=false -var-file=terraform.tfvars
 fi
 
 if [ "$PLAN_ONLY" = true ]; then

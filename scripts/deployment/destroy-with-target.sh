@@ -97,9 +97,9 @@ if [ "$PLAN_ONLY" = true ]; then
   terraform plan -lock=false -destroy -var-file=terraform.tfvars -out=destroy.tfplan
 else
   # Create a temporary plan file and apply it with auto-approve
-  # No need for -lock=false here since we're actually applying changes
-  terraform plan -destroy -var-file=terraform.tfvars -out=destroy.tfplan
-  terraform apply -auto-approve destroy.tfplan
+  # Add -lock=false to avoid state lock errors in CI/CD
+  terraform plan -lock=false -destroy -var-file=terraform.tfvars -out=destroy.tfplan
+  terraform apply -auto-approve -lock=false destroy.tfplan
 fi
 
 # Now, destroy the remaining resources (IAM roles, etc.)
@@ -115,7 +115,8 @@ if [ "$PLAN_ONLY" = true ]; then
     -out=destroy-step2.tfplan
 else
   # Apply with auto-approve for CI/CD environments
-  terraform destroy -auto-approve -var-file=terraform.tfvars \
+  # Add -lock=false to avoid state lock errors
+  terraform destroy -auto-approve -lock=false -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current
@@ -128,7 +129,8 @@ if [ "$PLAN_ONLY" = true ]; then
   terraform plan -lock=false -destroy -var-file=terraform.tfvars -out=destroy-final.tfplan
 else
   # Apply with auto-approve for CI/CD environments
-  terraform destroy -auto-approve -var-file=terraform.tfvars
+  # Add -lock=false to avoid state lock errors
+  terraform destroy -auto-approve -lock=false -var-file=terraform.tfvars
 
   # Clean up
   rm -f destroy.tfplan
