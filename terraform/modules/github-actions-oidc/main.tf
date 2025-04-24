@@ -9,9 +9,9 @@ data "aws_iam_openid_connect_provider" "github_existing" {
 
 # Create IAM OIDC Provider for GitHub only if it doesn't exist
 resource "aws_iam_openid_connect_provider" "github" {
-  count           = var.create_github_oidc_provider ? 1 : 0
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  count          = var.create_github_oidc_provider ? 1 : 0
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # GitHub's OIDC thumbprint - this is the certificate thumbprint for GitHub's OIDC provider
   # This should be updated if GitHub rotates their certificates
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
