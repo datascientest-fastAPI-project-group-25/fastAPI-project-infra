@@ -134,6 +134,7 @@ module "github_actions_oidc" {
   source      = "../../../modules/github-actions-oidc"
   environment = "stg"
   github_org  = var.github_org
+  github_repo = var.github_repo
   namespaces  = ["fastapi-helm-stg"] # Match k8s_resources namespace
 
   depends_on = [module.eks]
