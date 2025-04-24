@@ -96,8 +96,8 @@ if [ "$PLAN_ONLY" = true ]; then
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current || true
 else
-  # Apply
-  terraform apply -var-file=terraform.tfvars \
+  # Apply with auto-approve for CI/CD environments
+  terraform apply -auto-approve -var-file=terraform.tfvars \
     -target=module.eks.module.eks.aws_iam_role.this[0] \
     -target=module.eks.module.eks.data.aws_partition.current \
     -target=module.eks.module.eks.data.aws_caller_identity.current
@@ -114,8 +114,8 @@ if [ "$PLAN_ONLY" = true ]; then
   # Try the plan anyway to show the error in the logs
   terraform plan -var-file=terraform.tfvars || true
 else
-  # Apply
-  terraform apply -var-file=terraform.tfvars
+  # Apply with auto-approve for CI/CD environments
+  terraform apply -auto-approve -var-file=terraform.tfvars
 fi
 
 if [ "$PLAN_ONLY" = true ]; then
