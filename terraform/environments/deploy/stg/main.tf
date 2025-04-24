@@ -2,10 +2,26 @@
 
 terraform {
   backend "s3" {}
+
+  required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
 }
 
 provider "aws" {
   region = var.aws_region
+}
+
+# Placeholder resource for state lock checking
+resource "random_id" "placeholder" {
+  byte_length = 8
+  keepers = {
+    # This value changes each time we run the script to ensure it's always considered "new"
+    timestamp = timestamp()
+  }
 }
 
 # Create VPC using our custom module
