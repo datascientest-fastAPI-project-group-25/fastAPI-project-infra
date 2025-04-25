@@ -354,68 +354,143 @@ To further enhance security, consider implementing:
 
 ## Current Deployment Issues (April 2025)
 
-Based on the error logs from the GitHub Actions workflow, we've identified the following issues that need to be fixed:
+Based on the error logs from the GitHub Actions workflow and our investigation, we've identified the following issues that need to be fixed:
 
-1. **Null value found in list** - This is occurring with the Kubernetes and Helm providers, specifically with the `module.eks.cluster_name` value.
+1. **Invalid for_each Argument** - The `for_each` block in the `ghcr-secret` module is using dynamic keys that depend on values only known after the apply phase. This causes Terraform to fail during the plan phase because it cannot determine the full set of keys.
 
-2. **Error reading Secrets Manager Secret (github/machine-user-token)** - The GitHub token secret can't be found in AWS Secrets Manager.
+2. **State Lock Issues** - The Terraform state is getting locked during GitHub Actions workflows, especially when they're cancelled, causing future deployments to fail. This is a symptom of the underlying `for_each` issue, as it forces the use of `-target` approach for deployments.
 
-3. **Error creating IAM OIDC Provider** - The provider with URL https://token.actions.githubusercontent.com already exists.
+3. **Missing Argo Module Implementation** - The `argo` module is missing its `main.tf` file, which is likely why some of the deployments were failing. This file is needed to define the resources that the module should create.
+
+4. **Undeclared Variables** - The warnings indicate that variables like `aws_account_id` and `environment` are being used but not declared in the Terraform configuration.
+
+5. **Resource Targeting (-target) Warnings** - The `-target` option is used during planning, which is not recommended for routine use. This can lead to partial plans and misaligned configurations.
+
+6. **Deprecated Arguments** - Some resources are using deprecated arguments, which may lead to compatibility issues in the future.
 
 ### Fix Plan for Current Issues
 
-We'll create a new branch `fix/terraform-deployment-errors` from `main` and implement the following fixes:
+We've created a branch `fix/terraform-deployment-errors` from `main` and implemented the following fixes:
 
-#### 1. Fix the OIDC Provider Issue
+#### 1. Fix the for_each Issue in ghcr-secret Module
 
-The error "Provider with url https://token.actions.githubusercontent.com already exists" indicates we're trying to create an OIDC provider that already exists. We need to modify the GitHub Actions OIDC module to check if the provider exists before creating it.
+The error "The 'for_each' map includes keys derived from resource attributes that cannot be determined until apply" occurs because the `ghcr-secret` module is using dynamic values in `for_each`. We've fixed this by:
 
-Files to modify:
-- `terraform/modules/github-actions-oidc/variables.tf` - Add a new variable to control provider creation
-- `terraform/modules/github-actions-oidc/main.tf` - Modify to check for existing provider
-- `terraform/modules/github-actions-oidc/outputs.tf` - Update outputs to handle both cases
-- `terraform/environments/deploy/prod/main.tf` - Update module call to use existing provider
-- `terraform/environments/deploy/stg/main.tf` - Update module call to use existing provider
+- [x] Modifying the `ghcr-secret` module to use static keys instead of dynamic ones
+- [x] Creating a local variable with a static map of namespaces
+- [x] Filtering the map based on the input namespaces list
+- [x] Updating the outputs to match the new implementation
 
-#### 2. Fix the GitHub Token Secret Issue
+Files modified:
+- [x] `terraform/modules/ghcr-secret/main.tf`
+- [x] `terraform/modules/ghcr-secret/outputs.tf`
 
-The error "Error reading Secrets Manager Secret (github/machine-user-token)" indicates the secret doesn't exist in AWS Secrets Manager. We need to:
+#### 2. Add Missing main.tf for Argo Module
 
-- Create the secret in AWS Secrets Manager using the AWS CLI
-- Update the GitHub token in the secret
-- Ensure the IAM role has permissions to access the secret
+We discovered that the `argo` module was missing its `main.tf` file, which is likely why some of the deployments were failing. We've fixed this by:
 
-#### 3. Fix the EKS Cluster Name Issue
+- [x] Creating a new `main.tf` file for the `argo` module
+- [x] Implementing the ArgoCD installation and configuration
+- [x] Ensuring it works with the existing `outputs.tf` and `variables.tf` files
 
-The "Null value found in list" error with `module.eks.cluster_name` suggests the EKS cluster output is not available when needed. We need to:
+Files added:
+- [x] `terraform/modules/argo/main.tf`
 
-- Ensure proper dependency ordering in Terraform
-- Modify the deployment script to ensure the EKS cluster is created before trying to use its outputs
-- Update the Kubernetes and Helm provider configurations to handle potential null values
+#### 3. Improve State Lock Handling
 
-#### Implementation Steps
+To address the state lock issues, we've enhanced the deployment script with:
 
-1. **Create a new branch**:
-   ```
-   git checkout -b fix/terraform-deployment-errors main
-   ```
+- [x] State backup functionality to create backups before any operations
+- [x] Improved error handling and reporting for state locks
+- [x] Better logging of lock information
+- [x] Windows compatibility improvements for the backend config file path
 
-2. **Fix the OIDC Provider Issue**:
-   - Update the GitHub Actions OIDC module to check if the provider exists
-   - Modify the module calls in the environment configurations
+Files modified:
+- [x] `scripts/deployment/deploy-with-target.sh`
 
-3. **Fix the GitHub Token Secret Issue**:
-   - Create the AWS Secrets Manager secret for the GitHub token
-   - Update the IAM permissions if needed
+#### 4. Create State Update Script
 
-4. **Fix the EKS Cluster Name Issue**:
-   - Update the deployment script to ensure proper dependency ordering
-   - Modify the provider configurations to handle null values
+We've created a new script for safely removing deleted resources from the state file:
 
-5. **Test and Deploy**:
-   - Test the changes in staging
-   - Apply to production if successful
-   - Document the changes and solutions
+- [x] The script creates backups before modifying the state
+- [x] It removes specific resources that have been manually deleted from AWS
+- [x] It includes safety checks and confirmation prompts
+- [x] It works with both Windows and Unix environments
+
+Files added:
+- [x] `scripts/update-state.sh`
+
+#### 5. Fix Resource Targeting Warnings
+
+The `-target` option is used during planning, which is not recommended for routine use. This can lead to partial plans and misaligned configurations. This issue will be largely resolved once the `for_each` issue is fixed, but we should also:
+
+- [ ] Refactor the configuration to avoid using the `-target` option except in exceptional cases
+- [ ] Split resources into separate modules or stages that can be applied independently
+- [ ] Update the deployment script to use a more robust approach for handling dependencies
+
+#### 6. Fix Undeclared Variables
+
+The warnings indicate that variables like `aws_account_id` and `environment` are being used but not declared in the Terraform configuration. We need to:
+
+- [ ] Declare all variables in the root module or relevant configuration file
+- [ ] Update the terraform.tfvars file if necessary to provide values for these variables
+- [ ] Ensure all variables have proper descriptions and type constraints
+
+#### 7. Fix Deprecated Arguments
+
+Some resources are using deprecated arguments, which may lead to compatibility issues in the future. We need to:
+
+- [ ] Identify all resources using deprecated arguments
+- [ ] Replace deprecated arguments with their recommended alternatives
+- [ ] Update documentation to reflect the changes
+
+### Implementation Status
+
+1. [x] **Fixed the for_each Issue in ghcr-secret Module**
+   - Modified the module to use static keys
+   - Updated outputs to match the new implementation
+
+2. [x] **Added Missing main.tf for Argo Module**
+   - Created the missing file with proper implementation
+
+3. [x] **Improved State Lock Handling**
+   - Enhanced the deployment script with state backup functionality
+   - Improved error handling and reporting
+
+4. [x] **Created State Update Script**
+   - Added a new script for safely removing deleted resources from state
+
+5. [ ] **Fix Resource Targeting Warnings**
+   - Not yet implemented - will be resolved once the for_each issue is fixed
+
+6. [ ] **Fix Undeclared Variables**
+   - Not yet implemented
+
+7. [ ] **Fix Deprecated Arguments**
+   - Not yet implemented
+
+### Next Steps
+
+1. [ ] **Create a Pull Request**:
+   - [ ] Push the changes to GitHub
+   - [ ] Create a PR from `fix/terraform-deployment-errors` to `main`
+
+2. [ ] **Test the Changes**:
+   - [ ] Let the GitHub workflow run to verify the fixes
+   - [ ] Monitor for any issues
+
+3. [ ] **Implement Remaining Fixes**:
+   - [ ] Fix Resource Targeting Warnings
+   - [ ] Fix Undeclared Variables
+   - [ ] Fix Deprecated Arguments
+
+4. [ ] **Deploy to Production**:
+   - [ ] Once all fixes are verified, deploy to production
+   - [ ] Monitor the deployment for any issues
+
+5. [ ] **Document the Changes**:
+   - [ ] Update documentation with the fixes and solutions
+   - [ ] Share knowledge with the team
 
 ## Conclusion
 

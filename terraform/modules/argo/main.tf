@@ -1,36 +1,60 @@
 # ArgoCD Module
-# This module deploys ArgoCD to the EKS cluster
+# This module installs and configures ArgoCD in the EKS cluster
 
+# Create namespace for ArgoCD
+resource "kubernetes_namespace" "argocd" {
+  metadata {
+    name = "argocd-${var.environment}"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+      "environment"                  = var.environment
+    }
+  }
+}
+
+# Install ArgoCD using Helm
 resource "helm_release" "argocd" {
-  name             = "argocd"
-  repository       = "https://argoproj.github.io/argo-helm"
-  chart            = "argo-cd"
-  namespace        = "argocd"
-  create_namespace = true
-  version          = "5.46.7" # Specify a version for stability
+  name       = "argocd-${var.environment}"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-cd"
+  namespace  = kubernetes_namespace.argocd.metadata[0].name
+  version    = "5.51.4"
 
   values = [
     file("${path.module}/argocd-values.yml")
   ]
 
-  # Wait for ArgoCD to be ready
-  timeout = 1800
+  # Set environment-specific values
+  set {
+    name  = "server.env[0].name"
+    value = "ENVIRONMENT"
+  }
+
+  set {
+    name  = "server.env[0].value"
+    value = var.environment
+  }
+
+  depends_on = [kubernetes_namespace.argocd]
 }
 
-# Wait for ArgoCD CRDs to be available
-resource "time_sleep" "wait_for_crds" {
-  depends_on      = [helm_release.argocd]
-  create_duration = "300s"
+# Create ApplicationSet template file
+resource "local_file" "application_set" {
+  content = templatefile("${path.module}/templates/application-set.yml", {
+    environment     = var.environment
+    github_org      = var.github_org
+    release_repo    = var.release_repo
+    target_revision = "main"
+  })
+  filename = "${path.module}/.terraform/application-set-${var.environment}.yml"
 }
 
-# Deploy ArgoCD Application using kubectl
-resource "null_resource" "apply_argocd_app" {
+# Apply the ApplicationSet
+resource "kubernetes_manifest" "application_set" {
+  manifest = yamldecode(local_file.application_set.content)
+
   depends_on = [
     helm_release.argocd,
-    time_sleep.wait_for_crds
+    local_file.application_set
   ]
-
-  provisioner "local-exec" {
-    command = "kubectl apply -f ${path.module}/argocd-app.yml"
-  }
 }
