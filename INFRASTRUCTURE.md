@@ -7,13 +7,14 @@ This document provides comprehensive documentation of the infrastructure deploym
 ## Table of Contents
 
 1. [Infrastructure Architecture](#infrastructure-architecture)
-2. [Deployment Workflow](#deployment-workflow)
-3. [Key Components](#key-components)
-4. [Terraform State Management](#terraform-state-management)
-5. [GitHub Actions CI/CD](#github-actions-cicd)
-6. [Troubleshooting Common Issues](#troubleshooting-common-issues)
-7. [Recent Improvements](#recent-improvements)
-8. [Best Practices](#best-practices)
+2. [Bootstrap Process](#bootstrap-process)
+3. [Deployment Workflow](#deployment-workflow)
+4. [Key Components](#key-components)
+5. [Terraform State Management](#terraform-state-management)
+6. [GitHub Actions CI/CD](#github-actions-cicd)
+7. [Troubleshooting Common Issues](#troubleshooting-common-issues)
+8. [Recent Improvements](#recent-improvements)
+9. [Best Practices](#best-practices)
 
 ## Infrastructure Architecture
 
@@ -28,14 +29,14 @@ graph TD
         EKS[EKS Cluster]
         S3[S3 Bucket for State]
         DDB[DynamoDB for State Lock]
-        
+
         subgraph "EKS Cluster"
             ARGO[ArgoCD]
             K8S[Kubernetes Resources]
             GHCR[GHCR Secret]
             ESO[External Secrets]
         end
-        
+
         VPC --> SG
         SG --> EKS
         IAM --> EKS
@@ -44,12 +45,12 @@ graph TD
         EKS --> GHCR
         EKS --> ESO
     end
-    
+
     subgraph "GitHub"
         GHA[GitHub Actions]
         GHCR_REPO[Container Registry]
     end
-    
+
     GHA --> S3
     GHA --> DDB
     GHA --> IAM
@@ -65,6 +66,77 @@ The infrastructure is deployed to two separate environments:
 
 Each environment has its own dedicated resources and state files.
 
+## Bootstrap Process
+
+Before deploying to AWS, we used a bootstrap process to set up the necessary infrastructure for Terraform state management and initial development.
+
+### LocalStack for Local Development
+
+We initially used LocalStack to emulate AWS services locally, which provided several benefits:
+
+1. **Cost Efficiency**: Avoided AWS costs during initial development
+2. **Faster Development**: Local development reduced latency and dependencies
+3. **Offline Development**: Allowed development without internet connectivity
+4. **Consistent Environment**: Provided a consistent environment for all developers
+
+The LocalStack setup included:
+
+- Emulated S3 bucket for Terraform state
+- Emulated DynamoDB table for state locking
+- Emulated IAM roles and policies
+- Emulated EKS cluster for testing
+
+### Bootstrap Infrastructure
+
+The bootstrap process involved setting up the minimal infrastructure required for Terraform to manage the rest of the infrastructure:
+
+```mermaid
+graph TD
+    subgraph "Bootstrap Process"
+        BS1[Create S3 Bucket for State]
+        BS2[Create DynamoDB Table for Locking]
+        BS3[Create IAM Roles for GitHub Actions]
+        BS4[Configure OIDC Provider]
+
+        BS1 --> BS2
+        BS2 --> BS3
+        BS3 --> BS4
+    end
+
+    subgraph "Main Infrastructure Deployment"
+        MI1[Deploy VPC & Networking]
+        MI2[Deploy EKS Cluster]
+        MI3[Deploy Kubernetes Resources]
+
+        BS4 --> MI1
+        MI1 --> MI2
+        MI2 --> MI3
+    end
+```
+
+The bootstrap infrastructure is defined in the `bootstrap/` directory and includes:
+
+1. **S3 Bucket**: `fastapi-project-terraform-state-{AWS_ACCOUNT_ID}`
+2. **DynamoDB Tables**:
+   - `terraform-state-lock` (production)
+   - `terraform-state-lock-dev` (development)
+   - `terraform-state-lock-test` (testing)
+3. **IAM Roles**:
+   - `github-actions-staging` (for staging deployments)
+   - `github-actions-production` (for production deployments)
+4. **OIDC Provider**: For GitHub Actions authentication
+
+### Migration from LocalStack to AWS
+
+After validating the infrastructure locally with LocalStack, we migrated to AWS using the following process:
+
+1. **Create Bootstrap Infrastructure**: Used the AWS CLI to create the bootstrap infrastructure
+2. **Import Resources**: Used `terraform import` to import the bootstrap resources into Terraform state
+3. **Deploy Infrastructure**: Used Terraform to deploy the rest of the infrastructure
+4. **Validate Deployment**: Validated the deployment using automated tests
+
+This approach allowed us to develop and test the infrastructure locally before incurring any AWS costs, and then smoothly transition to AWS when ready.
+
 ## Deployment Workflow
 
 The deployment process follows a folder-based approach with a multi-stage workflow:
@@ -76,14 +148,14 @@ sequenceDiagram
     participant Main as Main Branch
     participant Stg as Staging Environment
     participant Prod as Production Environment
-    
+
     Dev->>PR: Create feature/fix branch
     PR->>PR: Terraform Plan (PR Validation)
     PR->>Main: Merge PR
     Main->>Stg: Auto-deploy to Staging
     Stg->>Stg: Validation Tests
     Stg->>Prod: Auto-deploy to Production
-    
+
     Note over Stg,Prod: Manual deployment also possible via workflow_dispatch
 ```
 
@@ -114,7 +186,7 @@ The infrastructure is organized into reusable Terraform modules:
 
 ### Folder Structure
 
-```
+```plaintext
 fastAPI-project-infra/
 ├── bootstrap/                # Bootstrap infrastructure
 ├── scripts/
@@ -138,7 +210,7 @@ fastAPI-project-infra/
 
 Terraform state is stored in an S3 bucket with the following structure:
 
-```
+```plaintext
 s3://fastapi-project-terraform-state-{AWS_ACCOUNT_ID}/
 └── fastapi/
     └── infra/
@@ -160,7 +232,7 @@ DynamoDB tables are used for state locking:
 
 Before any operation that could modify the state, a backup is created:
 
-```
+```plaintext
 s3://fastapi-project-terraform-state-{AWS_ACCOUNT_ID}/
 └── fastapi/
     └── infra/
@@ -192,7 +264,7 @@ sequenceDiagram
     participant OIDC as AWS OIDC Provider
     participant IAM as IAM Role
     participant AWS as AWS Services
-    
+
     GHA->>OIDC: Request token
     OIDC->>GHA: Issue token
     GHA->>IAM: AssumeRoleWithWebIdentity
@@ -206,7 +278,8 @@ sequenceDiagram
 
 **Issue**: Terraform fails with "The 'for_each' map includes keys derived from resource attributes that cannot be determined until apply"
 
-**Solution**: 
+**Solution**:
+
 1. Use static keys in for_each blocks
 2. Deploy resources in stages using the `-target` approach
 3. Use the `deploy-with-target.sh` script which handles this automatically
@@ -216,6 +289,7 @@ sequenceDiagram
 **Issue**: Terraform fails with "Error acquiring the state lock"
 
 **Solution**:
+
 1. Check if another deployment is in progress
 2. Use the `update-state.sh` script to safely manage state
 3. Never use `force-unlock` as it may corrupt the state file
@@ -225,6 +299,7 @@ sequenceDiagram
 **Issue**: Resources are missing from the Terraform state
 
 **Solution**:
+
 1. Use the `update-state.sh` script to safely remove resources from the state
 2. Always create backups before modifying the state
 3. Use `terraform import` to add existing resources to the state
@@ -282,7 +357,7 @@ We improved the CI/CD workflow to:
 3. **Automated Testing**: Terraform plans are automatically generated and reviewed
 4. **Documentation**: Infrastructure is documented in code and in this document
 
-### Deployment Process
+### Deployment Strategy
 
 1. **Environment Separation**: Staging and production environments are completely separated
 2. **Progressive Deployment**: Changes are deployed to staging before production
