@@ -8,6 +8,36 @@
 # Don't exit immediately on error, we want to handle some errors gracefully
 set +e
 
+# Function to backup the Terraform state
+backup_terraform_state() {
+  local environment=$1
+  local timestamp=$(date +%Y%m%d%H%M%S)
+  local state_key="fastapi/infra/$environment/terraform.tfstate"
+  local backup_key="fastapi/infra/$environment/backups/terraform.tfstate.$timestamp"
+
+  echo "Creating backup of Terraform state for $environment environment..."
+
+  # Check if AWS CLI is available
+  if ! command -v aws &> /dev/null; then
+    echo "AWS CLI not found. Skipping state backup."
+    return 0
+  fi
+
+  # Get the S3 bucket name from the backend config
+  local bucket_name=$(grep "bucket" "$BACKEND_CONFIG" | cut -d'"' -f2)
+
+  # Check if the state file exists
+  if aws s3 ls "s3://$bucket_name/$state_key" &> /dev/null; then
+    # Create the backup
+    aws s3 cp "s3://$bucket_name/$state_key" "s3://$bucket_name/$backup_key"
+    echo "State backup created at s3://$bucket_name/$backup_key"
+    return 0
+  else
+    echo "No state file found at s3://$bucket_name/$state_key. Skipping backup."
+    return 0
+  fi
+}
+
 # Function to check if state is locked and wait for it to be released
 check_and_wait_for_state_lock() {
   local max_wait_time=600  # 10 minutes
@@ -27,6 +57,15 @@ check_and_wait_for_state_lock() {
       echo "Current lock details:"
       grep -A 10 "Lock Info:" lock_check.log
 
+      # Extract lock information for logging
+      local lock_id=$(grep -A 1 "ID:" lock_check.log | tail -n 1 | awk '{print $1}')
+      local lock_owner=$(grep -A 1 "Who:" lock_check.log | tail -n 1 | awk '{print $1}')
+      local lock_time=$(grep -A 1 "Created:" lock_check.log | tail -n 1)
+
+      echo "Lock ID: $lock_id"
+      echo "Lock Owner: $lock_owner"
+      echo "Lock Created: $lock_time"
+
       # Wait before checking again
       sleep $wait_interval
       total_wait=$((total_wait + wait_interval))
@@ -45,6 +84,8 @@ check_and_wait_for_state_lock() {
 
   echo "ERROR: State has been locked for more than $max_wait_time seconds."
   echo "Please investigate the lock manually or contact the administrator."
+  echo "IMPORTANT: Do NOT use force-unlock as it may corrupt the state file."
+  echo "Instead, wait for the lock to be released naturally or use the update-state.sh script to safely manage state."
   rm -f lock_check.log lock_check.tfplan
   return 1
 }
@@ -102,12 +143,19 @@ if [ ! -d "$DIR" ]; then
   exit 1
 fi
 
-# Create backend config file
-BACKEND_CONFIG="/tmp/backend-config-$ENVIRONMENT.tfbackend"
-echo "bucket = \"fastapi-project-terraform-state-$AWS_ACCOUNT_ID\"" > $BACKEND_CONFIG
-echo "key = \"fastapi/infra/$ENVIRONMENT/terraform.tfstate\"" >> $BACKEND_CONFIG
-echo "region = \"$AWS_REGION\"" >> $BACKEND_CONFIG
-echo "dynamodb_table = \"terraform-state-lock\"" >> $BACKEND_CONFIG
+# Create backend config file - use a path that works on both Windows and Unix
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+  # Windows path
+  BACKEND_CONFIG="$TEMP/backend-config-$ENVIRONMENT.tfbackend"
+else
+  # Unix path
+  BACKEND_CONFIG="/tmp/backend-config-$ENVIRONMENT.tfbackend"
+fi
+
+echo "bucket = \"fastapi-project-terraform-state-$AWS_ACCOUNT_ID\"" > "$BACKEND_CONFIG"
+echo "key = \"fastapi/infra/$ENVIRONMENT/terraform.tfstate\"" >> "$BACKEND_CONFIG"
+echo "region = \"$AWS_REGION\"" >> "$BACKEND_CONFIG"
+echo "dynamodb_table = \"terraform-state-lock\"" >> "$BACKEND_CONFIG"
 
 echo "=== Deploying infrastructure for $ENVIRONMENT environment ==="
 echo "AWS Account ID: $AWS_ACCOUNT_ID"
@@ -173,6 +221,8 @@ else
         # Check if this is a state lock error
         if echo "$output" | grep -q "Error acquiring the state lock"; then
           echo "State lock error detected. Waiting for lock to be released..."
+          # Create a backup of the state file for safety
+          backup_terraform_state $ENVIRONMENT
           check_and_wait_for_state_lock $ENVIRONMENT
           # Don't increment attempt for lock errors - this isn't a failure of the command itself
         else

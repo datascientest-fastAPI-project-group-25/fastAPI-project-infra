@@ -7,16 +7,33 @@ data "aws_secretsmanager_secret_version" "github_token" {
   secret_id = data.aws_secretsmanager_secret.github_token.id
 }
 
+# Use local variable with static keys for namespaces
+locals {
+  # Define static namespace map based on environment
+  namespace_map = {
+    "fastapi-helm-${var.environment}" = "Primary application namespace for ${var.environment}"
+    "argocd-${var.environment}"       = "ArgoCD namespace for ${var.environment}"
+    "default"                         = "Default namespace"
+  }
+
+  # Filter the map to only include namespaces that are in the var.namespaces list
+  filtered_namespaces = {
+    for ns_key, ns_desc in local.namespace_map :
+    ns_key => ns_desc if contains(var.namespaces, ns_key)
+  }
+}
+
 # Create a Kubernetes secret for GHCR authentication in each namespace
 resource "kubernetes_secret" "ghcr_auth" {
-  for_each = toset(var.namespaces)
+  for_each = local.filtered_namespaces
 
   metadata {
     name      = "ghcr-secret"
-    namespace = each.value
+    namespace = each.key
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
       "environment"                  = var.environment
+      "description"                  = each.value
     }
   }
 
