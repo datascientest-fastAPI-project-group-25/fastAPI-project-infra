@@ -172,6 +172,10 @@ jobs:
           # Make scripts executable
           chmod +x scripts/deployment/deploy-with-target.sh
 
+          # Convert script to Unix format to avoid line ending issues
+          apt-get update && apt-get install -y dos2unix
+          dos2unix scripts/deployment/deploy-with-target.sh
+
           # Map short names to directory names
           declare -A env_dirs
           env_dirs[staging]=stg
@@ -182,7 +186,7 @@ jobs:
             echo "Planning changes for $env environment (directory: $dir)..."
 
             # Use our deploy-with-target.sh script in plan-only mode
-            scripts/deployment/deploy-with-target.sh $dir $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION --plan-only
+            bash scripts/deployment/deploy-with-target.sh $dir $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION --plan-only
 
             # Copy the plan files to the expected location for the PR comment
             cp terraform/environments/deploy/$dir/tfplan-step1 terraform/environments/deploy/$dir/$dir-step1.tfplan
@@ -196,8 +200,12 @@ jobs:
           # Make scripts executable
           chmod +x scripts/deployment/deploy-with-target.sh
 
+          # Convert script to Unix format to avoid line ending issues
+          apt-get update && apt-get install -y dos2unix
+          dos2unix scripts/deployment/deploy-with-target.sh
+
           # Use our deploy-with-target.sh script to deploy to production
-          scripts/deployment/deploy-with-target.sh prod $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION
+          bash scripts/deployment/deploy-with-target.sh prod $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION
 
       # Comment plan output on PR
       - name: Comment Plan Output

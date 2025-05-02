@@ -11,9 +11,9 @@ data "aws_secretsmanager_secret_version" "github_token" {
 locals {
   # Define static namespace map based on environment
   namespace_map = {
-    "fastapi-helm-${var.environment}" = "Primary application namespace for ${var.environment}"
-    "argocd-${var.environment}"       = "ArgoCD namespace for ${var.environment}"
-    "default"                         = "Default namespace"
+    "fastapi-helm-${var.environment}" = "app-namespace"
+    "argocd-${var.environment}"       = "argocd-namespace"
+    "default"                         = "default-namespace"
   }
 
   # Filter the map to only include namespaces that are in the var.namespaces list
