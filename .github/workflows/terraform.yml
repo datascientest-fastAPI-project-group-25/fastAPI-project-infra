@@ -169,12 +169,27 @@ jobs:
       - name: Initialize and Plan - PR
         if: github.event_name == 'pull_request'
         run: |
+          # Debug information
+          echo "Current directory: $(pwd)"
+          echo "Directory listing:"
+          ls -la
+          echo "Scripts directory listing:"
+          ls -la scripts/deployment/
+
           # Make scripts executable
           chmod +x scripts/deployment/deploy-with-target.sh
 
           # Convert script to Unix format to avoid line ending issues
           apt-get update && apt-get install -y dos2unix
           dos2unix scripts/deployment/deploy-with-target.sh
+
+          # Check script content
+          echo "Script first line:"
+          head -n 1 scripts/deployment/deploy-with-target.sh
+
+          # Use absolute path to the script
+          SCRIPT_PATH="$(pwd)/scripts/deployment/deploy-with-target.sh"
+          echo "Using script at: $SCRIPT_PATH"
 
           # Map short names to directory names
           declare -A env_dirs
@@ -186,7 +201,7 @@ jobs:
             echo "Planning changes for $env environment (directory: $dir)..."
 
             # Use our deploy-with-target.sh script in plan-only mode
-            bash scripts/deployment/deploy-with-target.sh $dir $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION --plan-only
+            bash "$SCRIPT_PATH" $dir $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION --plan-only
 
             # Copy the plan files to the expected location for the PR comment
             cp terraform/environments/deploy/$dir/tfplan-step1 terraform/environments/deploy/$dir/$dir-step1.tfplan
@@ -197,6 +212,13 @@ jobs:
       - name: Deploy to Production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Debug information
+          echo "Current directory: $(pwd)"
+          echo "Directory listing:"
+          ls -la
+          echo "Scripts directory listing:"
+          ls -la scripts/deployment/
+
           # Make scripts executable
           chmod +x scripts/deployment/deploy-with-target.sh
 
@@ -204,8 +226,16 @@ jobs:
           apt-get update && apt-get install -y dos2unix
           dos2unix scripts/deployment/deploy-with-target.sh
 
+          # Check script content
+          echo "Script first line:"
+          head -n 1 scripts/deployment/deploy-with-target.sh
+
+          # Use absolute path to the script
+          SCRIPT_PATH="$(pwd)/scripts/deployment/deploy-with-target.sh"
+          echo "Using script at: $SCRIPT_PATH"
+
           # Use our deploy-with-target.sh script to deploy to production
-          bash scripts/deployment/deploy-with-target.sh prod $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION
+          bash "$SCRIPT_PATH" prod $AWS_ACCOUNT_ID $AWS_DEFAULT_REGION
 
       # Comment plan output on PR
       - name: Comment Plan Output
