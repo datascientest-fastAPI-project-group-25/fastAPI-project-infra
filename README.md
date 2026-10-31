@@ -1,321 +1,146 @@
 # FastAPI Project Infrastructure
 
-Infrastructure as Code (IaC) repository for managing the FastAPI project infrastructure using Terraform with OIDC authentication for secure GitHub Actions integration.
+Terraform infrastructure for the **DataScientest Group 25 bootcamp team project**.
+This repository is the infrastructure part of a three-repository learning project,
+not a claim of a currently running AWS service or production readiness.
 
-## 📋 Project Overview
+## Contribution and team context
 
-This repository contains the infrastructure code for the FastAPI project, organized into three main components:
+[Oluwatoyin Balogun (TYBies)](https://github.com/TYBies) confirms responsibility
+for the bootcamp's Terraform/AWS infrastructure, S3 remote state, GitHub Actions
+OIDC/IAM integration, and hands-on Kubernetes application deployments and Services.
+These are training-project responsibilities, not sole authorship of the application
+or the whole team's delivery pipeline.
 
-| Component | Description |
-|-----------|-------------|
-| **Bootstrap** | Sets up foundational AWS resources (S3, DynamoDB, IAM) |
-| **Terraform Modules** | Reusable infrastructure components (VPC, EKS, ArgoCD, etc.) |
-| **Environment Deployments** | Environment-specific configurations (Development, Staging, Production) |
+Repository evidence includes [infrastructure fixes](https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra/commit/163765bfe926d8c14a33f625bab3a884ef3fbbca)
+and [infrastructure documentation](https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra/commit/e70a611fbe10a184051b309a941ee0123e551e4e),
+both attributed by GitHub to TYBies. Commit history supports specific contributions;
+it is not a measure of expertise or proof of current deployment health.
 
-## 🏗️ Architecture
+## Architecture and repository boundaries
 
-![Infrastructure Architecture](https://mermaid.ink/img/pako:eNp1kMFqwzAMhl9F-NRCXyDQQw9bKYUNtl56ETLWEjOcyMhyxyB594nEhbXQnWT9_z99kjdUziFqVK_4cOQJPFqPgRJYCMxJBPZgKdCMNmAiS5FCYOcpwYTOUqDXYCjQO_qEgZxlP1MIFNlToBHHGSKNZMFjILvgGMgvOEZyC46JhoVjJrtwLDTNHAu5mWOlbuJYyU8cG7ULx0bNzLFTvXDs5CeOg-qF46Bm5jjITxwntTPHSe3CcZKfOC6qFo6L6pnjIj9x3FSNjpvKwXFTMThuciPjTfngeJPvHR_Kro6P8r3jU9nV8Sl_c3yW7Ryf8p3jS9nW8SXfOr7Kto6v8q3ju2zr-C7fOH7Kto6f8o3jV9nW8avs4vhd1jt-l_WO_2Wd43_Z2vG_rHP8K1s7_pV1jv9la8e_ss7xXbZ2fJf_AK6Jqzc?type=png)
+| Repository | Responsibility |
+| --- | --- |
+| [app](https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-app) | FastAPI/React application, tests and container-image workflows |
+| [release](https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-release) | Helm chart, environment values and image-tag updates |
+| **infra (this repository)** | AWS networking/EKS, IAM, Terraform state, Kubernetes foundations and Argo CD setup |
 
-## 📁 Directory Structure
+```text
+app source -> GitHub Actions -> frontend/backend images in GHCR
+                              -> release repository image-tag updates
+release Helm chart/values -> Argo CD -> Kubernetes workloads and Services
+infra Terraform -> AWS VPC/EKS + IAM + Kubernetes/Argo CD foundations
+GitHub Actions -> AWS IAM via OIDC; Terraform -> S3 remote state
+```
 
-| Directory | Description |
-|-----------|-------------|
-| `bootstrap/` | Infrastructure bootstrap code |
-| `bootstrap/environments/` | Environment-specific bootstrap configurations |
-| `bootstrap/modules/` | Reusable bootstrap Terraform modules |
-| `bootstrap/scripts/` | Utility scripts for bootstrap setup |
-| `terraform/modules/` | Reusable infrastructure modules |
-| `terraform/modules/argo/` | ArgoCD deployment module |
-| `terraform/modules/eks/` | EKS cluster module |
-| `terraform/modules/external-secrets/` | External Secrets Operator module |
-| `terraform/modules/ghcr-access/` | GitHub Container Registry access module |
-| `terraform/modules/iam/` | IAM roles and policies module |
-| `terraform/modules/k8s-resources/` | Kubernetes resources module |
-| `terraform/modules/oidc/` | OIDC provider module |
-| `terraform/modules/rds/` | RDS database module |
-| `terraform/modules/security/` | Security groups module |
-| `terraform/modules/vpc/` | VPC network module |
-| `terraform/environments/` | Environment-specific deployments |
-| `terraform/environments/clean-deploy/` | Clean deployment approach |
-| `terraform/environments/clean-deploy/development/` | Development environment configuration |
-| `terraform/environments/clean-deploy/staging/` | Staging environment configuration |
-| `terraform/environments/clean-deploy/production/` | Production environment configuration |
+This is the intended integration visible in source, not a verified live end-to-end
+pipeline. OIDC here concerns GitHub Actions authenticating to AWS; it does **not**
+establish how Argo CD authenticates to Git or how GHCR image pulls authenticate.
 
-## 🚀 Quick Start
+### Source map
 
-### Prerequisites
+| Path | What to inspect |
+| --- | --- |
+| [`bootstrap/`](bootstrap/) | AWS and LocalStack bootstrap approaches and supporting documentation |
+| [`bootstrap/modules/state/main.tf`](bootstrap/modules/state/main.tf) | S3 state bucket, versioning/encryption/public-access configuration and DynamoDB locking resources |
+| [`terraform/environments/deploy/stg/`](terraform/environments/deploy/stg/) / [`prod/`](terraform/environments/deploy/prod/) | Staging/production Terraform roots with S3 backends |
+| [`terraform/modules/`](terraform/modules/) | VPC, EKS, IAM, security, Kubernetes resources, Argo CD, External Secrets and GHCR-secret modules |
+| [`terraform/modules/argo/main.tf`](terraform/modules/argo/main.tf) | Argo CD Helm release and ApplicationSet generation |
+| [ApplicationSet template](terraform/modules/argo/templates/application-set.yml) | Release repo `main`, `charts/fastapi`, environment value-file selection and automated sync policy |
+| [Terraform workflow](.github/workflows/terraform.yml) | AWS credential configuration, PR planning and main-branch deployment logic |
 
-1. **AWS CLI**: Installed and configured with appropriate credentials
-2. **Terraform**: Version 1.5.7 or later
-3. **kubectl**: For interacting with Kubernetes clusters
-4. **GitHub Account**: For OIDC authentication
+The staging root explicitly selects **in-cluster PostgreSQL**, not RDS. The old
+`clean-deploy/` directory layout and RDS claims are not the current source layout.
+Bootstrap code declaring locking/versioning is not evidence that those settings
+are currently enabled in an AWS account.
 
-### Environment Setup
+## Safe local validation (no AWS account required)
 
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra.git
-   cd fastAPI-project-infra
-   ```
-
-2. **Set up AWS credentials**
-
-   ```bash
-   aws configure
-   # Enter your AWS Access Key ID, Secret Access Key, and default region
-   ```
-
-### Setting up Terraform State
+Clone this repository and run commands from its root:
 
 ```bash
-# Create S3 bucket and DynamoDB table for Terraform state
-./setup-state.sh
+git clone https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra.git
+cd fastAPI-project-infra
 ```
 
-### Deploying with OIDC Authentication
+Prerequisites for the following checks: Python 3 and the `python-hcl2` and `PyYAML`
+parser packages in an isolated, trusted local environment. The documentation review
+used Python 3.13, python-hcl2 8.1.4 and PyYAML 6.0.3. These checks read source only;
+they do not import providers, initialise a backend or execute deployment scripts.
 
 ```bash
-# Deploy infrastructure with OIDC authentication
-./deploy-with-oidc.sh
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+import hcl2
+paths = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+files = [Path(p) for p in paths if p.endswith((".tf", ".tfvars", ".hcl"))]
+for path in files:
+    hcl2.loads(path.read_text())
+print(f"Parsed {len(files)} HCL files")
+PY
 ```
-
-### Staged Deployment
-
-For more control, you can deploy each component separately:
 
 ```bash
-# Deploy IAM resources
-cd terraform/environments/clean-deploy/development
-terraform init \
-  -backend-config="bucket=fastapi-project-terraform-state-YOUR_AWS_ACCOUNT_ID" \
-  -backend-config="key=fastapi/infra/dev/terraform.tfstate" \
-  -backend-config="region=us-east-1" \
-  -backend-config="dynamodb_table=terraform-state-lock-dev"
-terraform apply -target=module.iam
-
-# Deploy VPC
-terraform apply -target=module.vpc
-
-# Deploy security groups
-terraform apply -target=module.security
-
-# Deploy EKS cluster
-terraform apply -target=module.eks
-
-# Deploy Kubernetes resources
-terraform apply -target=module.k8s_resources
-
-# Deploy ArgoCD
-terraform apply -target=module.argocd
-
-# Deploy External Secrets Operator
-terraform apply -target=module.external_secrets
-
-# Deploy GHCR access
-terraform apply -target=module.ghcr_access
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+import yaml
+paths = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+files = [Path(p) for p in paths if p.endswith((".yml", ".yaml"))
+         and not p.startswith("charts/fastapi/templates/") and not Path(p).is_symlink()]
+for path in files:
+    list(yaml.safe_load_all(path.read_text()))
+print(f"Parsed {len(files)} YAML files (Helm templates excluded)")
+PY
 ```
 
-For more information, see the [Clean Deploy README](terraform/environments/clean-deploy/README.md).
+**Observed at baseline `ad27179`:** 66 HCL files and 11 YAML files parsed.
+Terraform CLI was unavailable, so `terraform fmt` and `terraform validate` were
+**not run**. Parser success does not validate provider schemas, module arguments,
+IAM permissions or Kubernetes connectivity. No `terraform init`, plan, apply,
+AWS CLI request or cluster operation was used for this review.
 
-## 🛠️ Make Commands
+## Known baseline limitations before deployment
 
-### Root Makefile Commands
+- The ApplicationSet template selects `values.${environment}.yaml`, while the
+  release chart contains `values-stg.yaml` and `values-prod.yaml`; release automation
+  updates a second set under `config/helm/`. Reconcile these paths before syncing.
+- The Argo module creates `argocd-${environment}`, while its ApplicationSet template
+  names namespace `argocd`. Resolve namespace ownership before deployment.
+- `PLAN.md` is a broken tracked symlink in a fresh clone. Use the documentation
+  links below rather than treating that path as a setup prerequisite.
+- Saved Terraform plans are tracked in the baseline and contain embedded state.
+  They are not safe onboarding artifacts: do not apply, copy or republish them.
+  Maintainers should review/remove sensitive artifacts and assess any required
+  credential rotation separately; this README-only change does not remediate history.
+- The PR Terraform workflow configures AWS credentials even for documentation
+  changes. This documentation review skips CI explicitly rather than attempting
+  cloud validation. Required checks may therefore remain pending.
 
-| Command | Description |
-|---------|-------------|
-| `make ENV=aws tf_plan` | Run Terraform plan for AWS environment |
-| `make tf_plan` | Run Terraform plan for LocalStack environment (default) |
-| `make ENV=test test` | Run tests using test environment |
-| `make ENV=local-test act_mock` | Run GitHub Actions locally with Act |
-| `make git_feature` | Create a new feature branch |
-| `make git_fix` | Create a new fix branch |
-| `make git_commit` | Commit changes in logical groups |
-| `make git_push` | Push current branch to remote |
-| `make git_merge_main` | Merge current branch to main branch |
-| `make git_status` | Show git status |
-| `make help` | Show all available commands |
+## Deployment prerequisites — separate, maintainer-reviewed work
 
-### Bootstrap Makefile Commands
+An actual deployment needs an approved AWS account and budget, reviewed IAM trust
+and permissions, a chosen Terraform/provider version set, a configured state
+backend, container-registry access, and reviewed Kubernetes/Argo CD integration.
+Do not use committed example passwords or assume checked-in plans are current.
+Review scripts before execution: bootstrap, deploy, destroy and state-unlock
+commands can change cloud resources or state. LocalStack exercises are not proof
+that AWS deployment works.
 
-| Command | Description |
-|---------|-------------|
-| `make -C bootstrap start-localstack` | Start LocalStack container |
-| `make -C bootstrap local-init` | Initialize Terraform for LocalStack |
-| `make -C bootstrap local-apply` | Apply changes to LocalStack |
-| `make -C bootstrap aws-prepare` | Package Lambda for AWS deployment |
-| `make -C bootstrap aws-bootstrap-dryrun` | Run AWS bootstrap dry run |
-| `make -C bootstrap help` | Show all bootstrap commands |
+## Team documentation
 
-### Docker-based Bootstrap Commands
+These existing guides retain the team's detailed operational context. Some reflect
+older layouts; compare every command with the current tree before running it.
 
-| Command | Description |
-|---------|-------------|
-| `make -C bootstrap docker-build` | Build Docker images for AWS and LocalStack |
-| `make -C bootstrap docker-aws` | Start AWS environment in Docker |
-| `make -C bootstrap docker-localstack` | Start LocalStack environment in Docker |
-| `make -C bootstrap docker-aws-setup-state` | Set up Terraform state in AWS using Docker |
-| `make -C bootstrap docker-aws-bootstrap-dryrun` | Run AWS bootstrap dry run in Docker |
-| `make -C bootstrap docker-localstack-bootstrap-dryrun` | Run LocalStack bootstrap dry run in Docker |
-| `make -C bootstrap docker-test` | Test both Docker environments |
-| `make -C bootstrap docker-clean` | Clean up Docker resources |
+- [Infrastructure guide](INFRASTRUCTURE.md)
+- [Bootstrap guide](bootstrap/README.md)
+- [Deployment environment guide](terraform/environments/deploy/README.md)
+- [State module guide](terraform/modules/terraform-state/README.md)
+- [Deployment helpers](scripts/deployment/README.md)
+- [Monitoring helpers](scripts/monitoring/README.md)
+- [Branching and contribution workflow](BRANCHING.md)
+- [Earlier README and command tables](https://github.com/datascientest-fastAPI-project-group-25/fastAPI-project-infra/blob/ad2717913a1620d6550e52eb472ee5f7737563e6/README.md) — historical reference, not a validated runbook
 
-## 🔐 AWS Authentication
-
-### OIDC Authentication
-
-This project uses OpenID Connect (OIDC) for secure authentication between GitHub Actions and AWS, eliminating the need for long-lived AWS credentials.
-
-#### Benefits of OIDC
-
-| Benefit | Description |
-|---------|-------------|
-| **No Stored Secrets** | No AWS credentials stored in GitHub Secrets |
-| **Short-lived Credentials** | Temporary credentials generated on-demand |
-| **Fine-grained Permissions** | Precise control over which repositories and branches can access AWS resources |
-| **Reduced Risk** | Eliminates risk of leaked credentials |
-
-### Required Configuration
-
-| Resource | Description |
-|----------|-------------|
-| **OIDC Provider** | AWS IAM OIDC provider for GitHub Actions |
-| **IAM Role** | Role with appropriate permissions that GitHub Actions can assume |
-| **Trust Relationship** | Policy that allows specific GitHub repositories to assume the role |
-
-### Setup Process
-
-1. **Create OIDC Provider**
-   - This is automatically created by the `setup-state.sh` script
-   - Or manually create an OIDC provider with URL `https://token.actions.githubusercontent.com`
-
-2. **Create IAM Role**
-   - This is automatically created by the `setup-state.sh` script
-   - Or manually create a role with appropriate permissions and trust relationship
-
-### Usage in Workflows
-
-The GitHub Actions workflows automatically use OIDC authentication:
-
-```yaml
-permissions:
-  id-token: write  # Required for OIDC authentication
-  contents: read
-
-jobs:
-  deploy:
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: arn:aws:iam::123456789012:role/github-actions-role
-          aws-region: us-east-1
-```
-
-### Security Best Practices
-
-| Practice | Description |
-|----------|-------------|
-| **Restrict by Repository** | Limit which repositories can assume the role |
-| **Restrict by Branch** | Limit which branches can assume the role |
-| **Least Privilege** | Grant only the permissions needed for the workflow |
-| **Monitor Activity** | Watch for unusual AWS account activity |
-| **Regular Audits** | Periodically review OIDC configurations and permissions |
-
-## 🌍 Environment Configuration
-
-### Environment Structure
-
-The infrastructure is organized into three environments, each with its own configuration:
-
-| Environment | Purpose | Characteristics |
-|-------------|---------|----------------|
-| **Development** | For development and testing | Lightweight, in-cluster PostgreSQL |
-| **Staging** | Pre-production testing | Mirrors production with smaller resources, RDS PostgreSQL |
-| **Production** | Live environment | High availability, RDS PostgreSQL with multi-AZ |
-
-### Configuration Files
-
-| Location | Purpose |
-|----------|--------|
-| `terraform/environments/clean-deploy/development/` | Development environment configuration |
-| `terraform/environments/clean-deploy/staging/` | Staging environment configuration |
-| `terraform/environments/clean-deploy/production/` | Production environment configuration |
-| `terraform/environments/clean-deploy/development/terraform.tfvars` | Development-specific variables |
-| `terraform/environments/clean-deploy/staging/terraform.tfvars` | Staging-specific variables |
-| `terraform/environments/clean-deploy/production/terraform.tfvars` | Production-specific variables |
-
-### Terraform Variables
-
-Each environment has its own set of variables defined in `terraform.tfvars` files:
-
-```hcl
-# Example Development Variables (development/terraform.tfvars)
-project_name    = "fastapi-project"
-environment     = "dev"
-aws_region      = "us-east-1"
-cidr            = "10.0.0.0/16"
-db_username     = "postgres"
-db_password     = "postgres123"
-github_token    = "ghp_xxxxxxxxxxxxxxxxxxxx"
-
-# Cluster Configuration
-eks_cluster_name = "fastapi-project-eks-dev"
-eks_cluster_version = "1.27"
-eks_instance_types = ["t3.small"]
-```
-
-### Environment-Specific Differences
-
-| Feature | Development | Staging | Production |
-|---------|------------|---------|------------|
-| **Database** | In-cluster PostgreSQL | RDS PostgreSQL | RDS PostgreSQL (Multi-AZ) |
-| **Instance Types** | t3.small | t3.medium | t3.large |
-| **Node Count** | 2 | 2 | 3 |
-| **CIDR Range** | 10.0.0.0/16 | 10.1.0.0/16 | 10.2.0.0/16 |
-| **Self-healing** | Basic | Enhanced | Full |
-| **Monitoring** | Basic | Enhanced | Comprehensive |
-
-## 🔄 Development Workflow
-
-1. **Bootstrap** infrastructure provides foundational resources
-2. **Deploy** main infrastructure using bootstrapped resources
-3. **Test** changes locally using LocalStack
-4. **Contribute** by creating pull requests
-
-## 🌿 Git Workflow
-
-This project follows a trunk-based development model to maintain code quality and facilitate collaboration.
-
-### Branch Structure
-
-- `main`: Production branch (protected)
-- `feat/*`: Feature branches
-- `fix/*`: Bug fix branches
-
-### Folder-Based Environments
-
-Instead of using separate branches for different environments, we use folder-based environments:
-
-- `terraform/environments/clean-deploy/development/`: Configuration for the development environment.
-- `terraform/environments/clean-deploy/staging/`: Configuration for the staging environment.
-- `terraform/environments/clean-deploy/production/`: Configuration for the production environment.
-
-### Git Commands
-
-| Command | Description |
-|---------|-------------|
-| `make git_feature` | Create a new feature branch |
-| `make git_fix` | Create a new fix branch |
-| `make git_commit` | Commit changes in logical groups |
-| `make git_push` | Push current branch to remote |
-| `make git_merge_main` | Merge current branch to main branch |
-| `make git_status` | Show git status |
-
-For detailed information about the Git workflow, see [BRANCHING.md](BRANCHING.md).
-
-An example script demonstrating the Git workflow is available in [examples/git-workflow-example.sh](examples/git-workflow-example.sh).
-
-## 📄 License
-
-See [LICENSE](LICENSE) file.
+Contribute through a scoped PR; do not merge or deploy merely to verify this README.
+See [LICENSE](LICENSE).
